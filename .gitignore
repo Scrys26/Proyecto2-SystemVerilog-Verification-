@@ -9,6 +9,9 @@ simv.*
 simv_*
 *.daidir/
 *.vdb/
+sim/.fsm.sch.verilog.xml
+sim/cov_hier.cfg
+sim/verdi_config_file
 
 ucli.key
 vc_hdrs.h
