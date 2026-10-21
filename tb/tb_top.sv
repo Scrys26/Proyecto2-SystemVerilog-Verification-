@@ -7,6 +7,26 @@
 `timescale 1ns/1ps
 `include "uart_defines.v"
 
+// Dependencias incluidas manualmente (compilar solo tb_top.sv; requiere +incdir+../rtl +incdir+../tb)
+// Interfaces y aserciones
+`include "wb_if.sv"
+`include "uart_ser_if.sv"
+`include "modem_if.sv"
+`include "uart_wb_sva.sv"
+// RTL (hojas primero, uart_top al final)
+`include "raminfr.v"
+`include "uart_sync_flops.v"
+`include "uart_tfifo.v"
+`include "uart_rfifo.v"
+`include "uart_transmitter.v"
+`include "uart_receiver.v"
+`include "uart_regs.v"
+`include "uart_debug_if.v"
+`include "uart_wb.v"
+`include "uart_top.v"
+// Ambiente UVM (usa las interfaces)
+`include "uart_hello_pkg.sv"
+
 module tb_top;
 
   import uvm_pkg::*;
