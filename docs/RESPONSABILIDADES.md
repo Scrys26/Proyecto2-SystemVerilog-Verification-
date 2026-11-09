@@ -35,7 +35,7 @@ Aun así, cada registro se relaciona con un dominio por su función, y el repart
 | Módem e interrupciones | MCR, MSR, IER, IIR | Randy |
 | Bus | Debug 1, Debug 2, dirección 7 (*scratch*, a discutir en 3.5 del enunciado) | Eric |
 
-> Esta asignación sale del resumen del enunciado (sección 3.4). Debe verificarse contra `doc/UART_spec.pdf` antes de cerrar la sección 12 del plan.
+> Esta asignación sale del resumen del enunciado (sección 3.4). Debe verificarse contra `docs/UART_spec.pdf` antes de cerrar la sección 12 del plan.
 
 Eric ensambla todo: `reg_block`, mapas DLAB 0/1, adaptador `reg2bus`/`bus2reg`, predictor, puerta trasera (`hdl_path`) y secuencias integradas de UVM.
 

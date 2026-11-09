@@ -1,0 +1,39 @@
+# Targets de resumen y publicacion. Incluir desde el Makefile principal:
+#   include Makefile.runs
+# Variables esperadas (las define el Makefile principal o la linea de comandos):
+#   SEED=1234  ARGS=tests/foo.args  TXN_MAX=5 (opcional)
+# Ajustar SIMV y la ruta del dashboard de URG a tu entorno.
+
+SEED   ?= 1
+ARGS   ?=
+SIMV   ?= ./simv
+NAME   ?= smoke_$(SEED)
+OUTDIR ?= work/$(NAME)
+URGDASH?= urgReport/dashboard.txt
+
+ARGS_OPT := $(if $(ARGS),-f $(ARGS),)
+TXN_OPT  := $(if $(TXN_MAX),+UART_CFG_TXN_MAX=$(TXN_MAX),)
+
+.PHONY: smoke digest publish
+
+# Corrida corta: log completo queda en work/ (ignorado por git)
+smoke:
+	mkdir -p $(OUTDIR)
+	$(SIMV) +UVM_TESTNAME=uart_base_test +ntb_random_seed=$(SEED) \
+	  $(ARGS_OPT) $(TXN_OPT) -l $(OUTDIR)/sim.log -cm_name $(NAME) || true
+	$(MAKE) digest NAME=$(NAME)
+
+# Resume el log en results/<NAME>.md (pocos KB)
+digest:
+	python3 scripts/digest.py run --log $(OUTDIR)/sim.log \
+	  --out results/$(NAME).md --seed $(SEED) \
+	  $(if $(ARGS),--args $(ARGS),) \
+	  $(if $(wildcard $(URGDASH)),--urg $(URGDASH),)
+
+# Resumen CSV de una regresion (una linea por corrida)
+regr_digest:
+	python3 scripts/digest.py regr --logs 'work/*/sim.log' --out results/regr_summary.csv
+
+# Sube results/ a la rama runs
+publish:
+	bash scripts/publish_runs.sh "$(NAME)"

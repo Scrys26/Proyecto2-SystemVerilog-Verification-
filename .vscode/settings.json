@@ -1,0 +1,10 @@
+{
+  "files.associations": {
+    "*.sv": "systemverilog",
+    "*.svh": "systemverilog",
+    "*.v": "verilog"
+  },
+  "files.exclude": {
+    "**/work": true
+  }
+}

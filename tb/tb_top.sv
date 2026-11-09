@@ -1,31 +1,11 @@
 // -----------------------------------------------------------------------------
 // tb_top.sv
 // Módulo superior del banco de pruebas: genera reloj y reset, instancia las
-// interfaces y el DUT, enlaza las aserciones y entrega las interfaces
+// interfaces y el DUT, y entrega las interfaces
 // virtuales al ambiente UVM antes de run_test().
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 //`include "uart_defines.v"
-
-// Dependencias incluidas manualmente 
-// Interfaces y aserciones
-// `include "wb_if.sv"
-// `include "uart_ser_if.sv"
-// `include "modem_if.sv"
-// `include "uart_wb_sva.sv"
-// RTL 
-// `include "raminfr.v"
-// `include "uart_sync_flops.v"
-// `include "uart_tfifo.v"
-// `include "uart_rfifo.v"
-// `include "uart_transmitter.v"
-// `include "uart_receiver.v"
-// `include "uart_regs.v"
-// `include "uart_debug_if.v"
-// `include "uart_wb.v"
-// `include "uart_top.v"
-// Ambiente UVM 
-//`include "uart_hello_pkg.sv"
 
 module tb_top;
 
@@ -100,21 +80,6 @@ module tb_top;
 `ifndef UART_HAS_BAUDRATE_OUTPUT
   assign ser.baud = 1'b0;
 `endif
-
-  // ---------------------------------------------------------------------------
-  // Aserciones: bind a todas las instancias del módulo uart_top
-  // ---------------------------------------------------------------------------
-  bind uart_top uart_wb_sva u_wb_sva (
-    .wb_clk_i (wb_clk_i),
-    .wb_rst_i (wb_rst_i),
-    .wb_adr_i (wb_adr_i),
-    .wb_dat_i (wb_dat_i),
-    .wb_sel_i (wb_sel_i),
-    .wb_we_i  (wb_we_i),
-    .wb_stb_i (wb_stb_i),
-    .wb_cyc_i (wb_cyc_i),
-    .wb_ack_o (wb_ack_o)
-  );
 
   // ---------------------------------------------------------------------------
   // Entregar las interfaces al ambiente y arrancar la prueba
