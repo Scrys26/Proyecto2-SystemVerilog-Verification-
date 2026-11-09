@@ -1,27 +1,30 @@
-Reportes/*
-!Reportes/*.csv
-!Reportes/*.png
+# Resumenes visibles solo en la rama runs
+results/
+work/
+CLAUDE.md
 
-# Artefactos de VCS
+# Artefactos de VCS y URG
 csrc/
 simv
 simv.*
 simv_*
 *.daidir/
 *.vdb/
-sim/.fsm.sch.verilog.xml
-sim/cov_hier.cfg
-sim/verdi_config_file
+*.vpd
+*.vcd
+urgReport/
+cov_report/
+merged.vdb/
+cov_hier.cfg
+*.fsm.sch.verilog.xml
+verdi_config_file
 
 ucli.key
 vc_hdrs.h
 tapi_xml_writer.log
-
 .vcs_lib_lock
 AN.DB/
 DVEfiles/
-
-
 
 # Verdi y FSDB
 *.fsdb
@@ -39,3 +42,8 @@ core.*
 *.swp
 *~
 .DS_Store
+
+# Reportes locales: conservar unicamente CSV y PNG
+Reportes/*
+!Reportes/*.csv
+!Reportes/*.png

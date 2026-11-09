@@ -1,12 +1,11 @@
 # Tutorial: cómo instanciar el UART 16550 en un ambiente UVM
 
-Este tutorial explica, paso a paso, cómo conectar `uart_top` a un banco de pruebas UVM con VCS y UVM 1.2. Los archivos de `tb/` y `sim/` son un ejemplo funcional y mínimo; el ambiente completo (agentes, RAL, scoreboard, cobertura) lo construye cada grupo.
+Este tutorial explica, paso a paso, cómo conectar `uart_top` a un banco de pruebas UVM con VCS y UVM 1.2. Los archivos de `tb/`, `sva/` y `test/` son un ejemplo funcional y mínimo; el ambiente completo (agentes, RAL, scoreboard, cobertura) lo construye cada grupo.
 
 ## 0. Arranque rápido
 
 ```sh
-cd sim
-make            # compila y corre uart_hello_test
+make            # desde la raiz: compila y corre uart_hello_test
 ```
 
 Si la instancia está bien, el log `run_uart_hello_test_1.log` termina con:
@@ -24,19 +23,17 @@ Otras órdenes útiles: `make run SEED=42`, `make BUS8=1` (variante de 8 bits), 
 ## 1. Estructura del paquete
 
 ```
-uart16550_proyecto_uvm/
-├── rtl/          RTL del DUT, copiado sin cambios de rtl/verilog/ del proyecto original
-├── doc/          UART_spec.pdf (documento normativo) y CHANGES.txt
+uart16550-uvm/
+├── rtl/verilog/  RTL del DUT, copiado sin cambios
+├── docs/         UART_spec.pdf, enunciado, plan y documentacion
 ├── tb/
-│   ├── wb_if.sv           interfaz Wishbone (incluye int_o como irq)
-│   ├── uart_ser_if.sv     interfaz de la línea serie (stx, srx, baud)
-│   ├── modem_if.sv        señales de módem
-│   ├── uart_wb_sva.sv     ejemplo de módulo de aserciones para bind
-│   ├── uart_hello_pkg.sv  prueba de humo (solo para validar la instancia)
+│   ├── interfaces/        interfaces de Wishbone, serie y módem
+│   ├── filelist.f         orden de compilación
 │   └── tb_top.sv          módulo superior
-└── sim/
-    ├── filelist.f         orden de compilación
-    └── Makefile           compilación, simulación y cobertura
+├── sva/                   aserciones y enlace bind
+├── test/                  prueba de humo (solo valida la instancia)
+├── Makefile               compilación, simulación y cobertura
+└── Makefile.runs          corridas, resumen y publicación
 ```
 
 **No modifiquen nada en `rtl/`.** Si encuentran un error del DUT, se documenta (sección 3.5 del enunciado).
@@ -46,7 +43,7 @@ uart16550_proyecto_uvm/
 El RTL incluye dos archivos con `` `include ``: `timescale.v` y `uart_defines.v`. Por eso no aparecen en `filelist.f`, pero el compilador debe saber dónde buscarlos:
 
 ```
-+incdir+../rtl
++incdir+rtl/verilog
 ```
 
 El ancho del bus se elige con una macro **en la línea de comandos**, nunca editando `uart_defines.v`:
@@ -250,7 +247,7 @@ Los registros no tienen todos sus bits implementados (por ejemplo, IER y MCR). M
 
 ## 7. La prueba de humo (`uart_hello_test`)
 
-`uart_hello_pkg.sv` contiene una prueba que:
+`test/uart_hello_pkg.sv` contiene una prueba que:
 
 1. obtiene las tres interfaces de `uvm_config_db` (falla con `` `uvm_fatal `` si falta alguna),
 2. espera el fin del reset,
@@ -263,7 +260,7 @@ Sirve para confirmar que la instancia, las interfaces y la compilación están b
 
 | Síntoma | Causa probable |
 |---|---|
-| `Cannot open include file 'uart_defines.v'` | Falta `+incdir+../rtl` |
+| `Cannot open include file 'uart_defines.v'` | Falta `+incdir+rtl/verilog` |
 | `NOVIF` al iniciar | La ruta o el nombre en `set` no coincide con el `get`, o el `set` ocurre después de `run_test()` |
 | `wb_ack_o` nunca llega | `cyc` o `stb` en X, el reset sigue activo, o el driver baja `stb` antes de `ack` |
 | Se lee el registro equivocado | `wb_sel_i` incorrecto en modo de 32 bits (sección 5) |

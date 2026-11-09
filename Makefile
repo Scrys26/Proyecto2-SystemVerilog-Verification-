@@ -3,7 +3,7 @@
 #
 #   make                       compila y corre uart_hello_test con semilla 1
 #   make run TEST=x SEED=42    corre otra prueba o semilla (sin recompilar)
-#   make run ARGS="-f ../tests/caso.args"
+#   make run ARGS="-f tests/caso.args"
 #   make BUS8=1                compila la variante de bus de 8 bits
 #   make cov                   fusiona la cobertura y genera el reporte HTML
 #   make verdi                 abre Verdi con la base de datos de compilación
@@ -30,7 +30,7 @@ VCS_OPTS := -full64 -sverilog -ntb_opts uvm-1.2 \
             -debug_access+all -kdb \
             -cm $(COV_TYPES) -cm_hier cov_hier.cfg \
             $(DEFINES) \
-            -f filelist.f \
+            -f tb/filelist.f \
             -top tb_top \
             -l comp.log
 
@@ -64,3 +64,5 @@ clean:
 	rm -rf simv simv.daidir simv.vdb csrc ucli.key vc_hdrs.h \
 	       *.log *.fsdb cov_report merged.vdb cov_hier.cfg \
 	       novas* verdiLog AN.DB
+
+include Makefile.runs
