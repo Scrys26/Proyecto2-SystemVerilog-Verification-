@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// modem_if.sv
+// mod_if.sv
 // Señales de control de módem del UART.
 //
 //   Salidas del DUT : rts (rts_pad_o), dtr (dtr_pad_o)
@@ -10,7 +10,7 @@
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
-interface modem_if (input logic clk);
+interface mod_if (input logic clk);
 
   logic rts;
   logic dtr;
@@ -33,4 +33,4 @@ interface modem_if (input logic clk);
   modport drv (clocking drv_cb);
   modport mon (clocking mon_cb);
 
-endinterface : modem_if
+endinterface : mod_if
