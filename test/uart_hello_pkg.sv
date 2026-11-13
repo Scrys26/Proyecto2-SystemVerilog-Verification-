@@ -18,9 +18,10 @@ package uart_hello_pkg;
   class uart_hello_test extends uvm_test;
     `uvm_component_utils(uart_hello_test)
 
-    virtual wb_if       wb_vif;
-    virtual uart_ser_if ser_vif;
-    virtual modem_if    mdm_vif;
+    virtual wishB_if wishB_vif;
+    virtual serie_if serie_vif;
+    virtual mod_if mod_vif;
+    virtual int_if int_vif;
 
     function new(string name = "uart_hello_test", uvm_component parent = null);
       super.new(name, parent);
@@ -28,62 +29,64 @@ package uart_hello_pkg;
 
     function void build_phase(uvm_phase phase);
       super.build_phase(phase);
-      if (!uvm_config_db#(virtual wb_if)::get(this, "", "wb_vif", wb_vif))
-        `uvm_fatal("NOVIF", "No se encontró wb_vif en uvm_config_db")
-      if (!uvm_config_db#(virtual uart_ser_if)::get(this, "", "ser_vif", ser_vif))
-        `uvm_fatal("NOVIF", "No se encontró ser_vif en uvm_config_db")
-      if (!uvm_config_db#(virtual modem_if)::get(this, "", "mdm_vif", mdm_vif))
-        `uvm_fatal("NOVIF", "No se encontró mdm_vif en uvm_config_db")
+      if (!uvm_config_db#(virtual wishB_if)::get(this, "", "vif", wishB_vif))
+        `uvm_fatal("NOVIF", "No se encontró la interfaz Wishbone en uvm_config_db")
+      if (!uvm_config_db#(virtual serie_if)::get(this, "", "vif", serie_vif))
+        `uvm_fatal("NOVIF", "No se encontró la interfaz serie en uvm_config_db")
+      if (!uvm_config_db#(virtual mod_if)::get(this, "", "vif", mod_vif))
+        `uvm_fatal("NOVIF", "No se encontró la interfaz de módem en uvm_config_db")
+      if (!uvm_config_db#(virtual int_if)::get(this, "", "vif", int_vif))
+        `uvm_fatal("NOVIF", "No se encontró la interfaz de interrupción en uvm_config_db")
     endfunction
 
     // Lectura Wishbone de un registro de 8 bits.
-    //   reg_idx: índice del registro de la especificación (0 = RBR ... 6 = MSR).
+    //   reg_addr: índice del registro de la especificación (0 = RBR ... 6 = MSR).
     // En modo de 32 bits sin LITLE_ENDIAN, el byte se selecciona con
-    // wb_sel_i = 4'b1000 >> reg_idx[1:0] y viaja en el carril 3 - reg_idx[1:0].
-    task automatic wb_read(input bit [4:0] reg_idx, output bit [7:0] data);
-      int lane;
-      @(wb_vif.drv_cb);
-      wb_vif.drv_cb.adr <= reg_idx;
+    // wb_sel_i = 4'b1000 >> reg_addr[1:0] y viaja en el carril 3 - reg_addr[1:0].
+    task automatic wishB_read(input bit [4:0] reg_addr, output bit [7:0] read_data);
+      int byte_lane;
+      @(wishB_vif.drv_cb);
+      wishB_vif.drv_cb.adr <= reg_addr;
 `ifdef DATA_BUS_WIDTH_8
-      wb_vif.drv_cb.sel <= 4'b0001;            // ignorado en modo de 8 bits
-      lane = 0;
+      wishB_vif.drv_cb.sel <= 4'b0001;
+      byte_lane = 0;
 `else
-      wb_vif.drv_cb.sel <= 4'b1000 >> reg_idx[1:0];
-      lane = 3 - reg_idx[1:0];
+      wishB_vif.drv_cb.sel <= 4'b1000 >> reg_addr[1:0];
+      byte_lane = 3 - reg_addr[1:0];
 `endif
-      wb_vif.drv_cb.we  <= 1'b0;
-      wb_vif.drv_cb.cyc <= 1'b1;
-      wb_vif.drv_cb.stb <= 1'b1;
-      do @(wb_vif.drv_cb); while (wb_vif.drv_cb.ack !== 1'b1);
-      data = wb_vif.drv_cb.dat_s2m[8*lane +: 8];
-      wb_vif.drv_cb.cyc <= 1'b0;
-      wb_vif.drv_cb.stb <= 1'b0;
+      wishB_vif.drv_cb.we  <= 1'b0;
+      wishB_vif.drv_cb.cyc <= 1'b1;
+      wishB_vif.drv_cb.stb <= 1'b1;
+      do @(wishB_vif.drv_cb); while (wishB_vif.drv_cb.ack !== 1'b1);
+      read_data = wishB_vif.drv_cb.dat_s2m[8*byte_lane +: 8];
+      wishB_vif.drv_cb.cyc <= 1'b0;
+      wishB_vif.drv_cb.stb <= 1'b0;
     endtask
 
     task run_phase(uvm_phase phase);
-      bit [7:0] lcr, iir, lsr;
+      bit [7:0] lcr_value, iir_value, lsr_value;
       phase.raise_objection(this);
 
       // Esperar a que termine el reset que genera tb_top.
-      wait (wb_vif.rst === 1'b0);
-      repeat (2) @(wb_vif.drv_cb);
+      wait (wishB_vif.rst === 1'b0);
+      repeat (2) @(wishB_vif.drv_cb);
 
-      wb_read(5'd3, lcr);
-      wb_read(5'd2, iir);
-      wb_read(5'd5, lsr);
+      wishB_read(5'd3, lcr_value);
+      wishB_read(5'd2, iir_value);
+      wishB_read(5'd5, lsr_value);
 
-      `uvm_info("HELLO", $sformatf("LCR = 0x%02h, IIR = 0x%02h, LSR = 0x%02h", lcr, iir, lsr), UVM_LOW)
+      `uvm_info("HELLO", $sformatf("LCR = 0x%02h, IIR = 0x%02h, LSR = 0x%02h", lcr_value, iir_value, lsr_value), UVM_LOW)
 
       // Según la especificación, LCR se reinicia en 8'b0000_0011.
-      if (lcr !== 8'h03)
-        `uvm_error("HELLO", $sformatf("LCR después de reset = 0x%02h, se esperaba 0x03", lcr))
+      if (lcr_value !== 8'h03)
+        `uvm_error("HELLO", $sformatf("LCR después de reset = 0x%02h, se esperaba 0x03", lcr_value))
       else
         `uvm_info("HELLO", "Instancia correcta: el DUT responde por Wishbone", UVM_LOW)
 
-      if (ser_vif.stx !== 1'b1)
+      if (serie_vif.stx !== 1'b1)
         `uvm_error("HELLO", "stx_pad_o debería estar en reposo (1) después de reset")
 
-      repeat (10) @(wb_vif.drv_cb);
+      repeat (10) @(wishB_vif.drv_cb);
       phase.drop_objection(this);
     endtask
 
