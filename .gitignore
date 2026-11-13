@@ -36,6 +36,7 @@ novas*.rc
 nWaveLog/
 
 # Varios
+.vscode/
 *.log
 core
 core.*
