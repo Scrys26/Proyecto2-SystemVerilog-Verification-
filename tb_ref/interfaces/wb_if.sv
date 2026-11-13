@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// wb_if.sv
+// wishB_if.sv
 // Interfaz Wishbone entre el ambiente UVM y el esclavo uart_top.
 //
 // Nombres desde el punto de vista del bus:
@@ -12,7 +12,7 @@
 `timescale 1ns/1ps
 `include "uart_defines.v"
 
-interface wb_if (input logic clk);
+interface wishB_if (input logic clk);
 
   logic                         rst;      // reset asíncrono, activo en alto
   logic [`UART_ADDR_WIDTH-1:0]  adr;
@@ -23,7 +23,6 @@ interface wb_if (input logic clk);
   logic                         stb;
   logic                         cyc;
   logic                         ack;
-  logic                         irq;      // int_o del DUT
 
   // Clocking block del driver: maneja las señales del maestro un poco
   // después del flanco y muestrea las respuestas justo antes del flanco.
@@ -42,4 +41,4 @@ interface wb_if (input logic clk);
   modport drv (clocking drv_cb, input rst);
   modport mon (clocking mon_cb);
 
-endinterface : wb_if
+endinterface : wishB_if

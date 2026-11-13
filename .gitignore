@@ -1,7 +1,6 @@
 # Resumenes visibles solo en la rama runs
 results/
 work/
-CLAUDE.md
 
 # Artefactos de VCS y URG
 csrc/
@@ -36,6 +35,7 @@ novas*.rc
 nWaveLog/
 
 # Varios
+.vscode/
 *.log
 core
 core.*
