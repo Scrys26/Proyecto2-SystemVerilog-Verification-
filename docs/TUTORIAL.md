@@ -61,16 +61,17 @@ Se usa una interfaz por protocolo, porque cada una tendrá su propio agente:
 
 | Interfaz | Señales del DUT | Agente que la usa |
 |---|---|---|
-| `wb_if` | `wb_*`, `int_o` | Agente Wishbone y monitor de interrupción |
-| `uart_ser_if` | `stx_pad_o`, `srx_pad_i`, `baud_o` | Agente serie (driver hacia `srx`, monitores de `stx` y `srx`) |
-| `modem_if` | `rts_pad_o`, `dtr_pad_o`, `cts_pad_i`, `dsr_pad_i`, `ri_pad_i`, `dcd_pad_i` | Agente de módem |
+| `wishB_if` | `wb_*` | Agente Wishbone |
+| `serie_if` | `stx_pad_o`, `srx_pad_i`, `baud_o` | Agente serie |
+| `mod_if` | `rts_pad_o`, `dtr_pad_o`, `cts_pad_i`, `dsr_pad_i`, `ri_pad_i`, `dcd_pad_i` | Agente de módem |
+| `int_if` | `int_o` | Monitor de interrupción |
 
 Cada interfaz tiene dos *clocking blocks*:
 
 - `drv_cb`: el driver escribe en las salidas con un pequeño retardo después del flanco (`output #1`) y lee las respuestas justo antes del flanco (`input #1step`). Esto evita carreras entre el banco de pruebas y el RTL.
 - `mon_cb`: el monitor solo lee.
 
-En `wb_if`, los datos se nombran desde el punto de vista del bus: `dat_m2s` va del maestro (el ambiente) al esclavo (el DUT, `wb_dat_i`) y `dat_s2m` va del esclavo al maestro (`wb_dat_o`). Así no hay confusión entre los `_i` y `_o` del DUT y los del ambiente.
+En `wishB_if`, los datos se nombran desde el punto de vista del bus: `dat_m2s` va del maestro (el ambiente) al esclavo (el DUT, `wb_dat_i`) y `dat_s2m` va del esclavo al maestro (`wb_dat_o`). Así no hay confusión entre los `_i` y `_o` del DUT y los del ambiente. `int_o` vive en `int_if` para que su monitor sea independiente del agente Wishbone.
 
 ## 4. El módulo superior (`tb/tb_top.sv`)
 
@@ -89,17 +90,18 @@ La tasa de baudios es `f_clk / (16 × DL)`. Con 50 MHz y `DL = 1`, cada bit dura
 ### 4.2 Interfaces, reset y valores de reposo
 
 ```systemverilog
-wb_if       wb  (clk);
-uart_ser_if ser (clk);
-modem_if    mdm (clk);
+wishB_if wishB_bus (clk);
+serie_if serie_line (clk);
+mod_if mod_signals (clk);
+int_if int_signals (clk);
 
 initial begin
-  wb.rst  = 1'b1;
-  wb.cyc  = 1'b0;  wb.stb = 1'b0;  ...
-  ser.srx = 1'b1;   // ¡línea serie en reposo!
-  mdm.cts = 1'b1;  ...
+  wishB_bus.rst  = 1'b1;
+  wishB_bus.cyc  = 1'b0;  wishB_bus.stb = 1'b0;  ...
+  serie_line.srx = 1'b1;
+  mod_signals.cts = 1'b1;  ...
   repeat (5) @(posedge clk);
-  wb.rst  = 1'b0;
+  wishB_bus.rst  = 1'b0;
 end
 ```
 
@@ -115,26 +117,26 @@ Siempre con conexiones **por nombre**:
 ```systemverilog
 uart_top dut (
   .wb_clk_i  (clk),
-  .wb_rst_i  (wb.rst),
-  .wb_adr_i  (wb.adr),
-  .wb_dat_i  (wb.dat_m2s),
-  .wb_dat_o  (wb.dat_s2m),
-  .wb_we_i   (wb.we),
-  .wb_stb_i  (wb.stb),
-  .wb_cyc_i  (wb.cyc),
-  .wb_ack_o  (wb.ack),
-  .wb_sel_i  (wb.sel),
-  .int_o     (wb.irq),
-  .stx_pad_o (ser.stx),
-  .srx_pad_i (ser.srx),
-  .rts_pad_o (mdm.rts),
-  .cts_pad_i (mdm.cts),
-  .dtr_pad_o (mdm.dtr),
-  .dsr_pad_i (mdm.dsr),
-  .ri_pad_i  (mdm.ri),
-  .dcd_pad_i (mdm.dcd)
+  .wb_rst_i  (wishB_bus.rst),
+  .wb_adr_i  (wishB_bus.adr),
+  .wb_dat_i  (wishB_bus.dat_m2s),
+  .wb_dat_o  (wishB_bus.dat_s2m),
+  .wb_we_i   (wishB_bus.we),
+  .wb_stb_i  (wishB_bus.stb),
+  .wb_cyc_i  (wishB_bus.cyc),
+  .wb_ack_o  (wishB_bus.ack),
+  .wb_sel_i  (wishB_bus.sel),
+  .int_o     (int_signals.int_o),
+  .stx_pad_o (serie_line.stx),
+  .srx_pad_i (serie_line.srx),
+  .rts_pad_o (mod_signals.rts),
+  .cts_pad_i (mod_signals.cts),
+  .dtr_pad_o (mod_signals.dtr),
+  .dsr_pad_i (mod_signals.dsr),
+  .ri_pad_i  (mod_signals.ri),
+  .dcd_pad_i (mod_signals.dcd)
 `ifdef UART_HAS_BAUDRATE_OUTPUT
- ,.baud_o    (ser.baud)
+ ,.baud_o    (serie_line.baud)
 `endif
 );
 ```
@@ -146,14 +148,14 @@ El nombre de instancia (`dut`) importa: la cobertura de código (`+tree tb_top.d
 El módulo de aserciones se escribe aparte y se "pega" al DUT sin tocar el RTL:
 
 ```systemverilog
-bind uart_top uart_wb_sva u_wb_sva (
+bind uart_top uart_sva u_uart_sva (
   .wb_clk_i (wb_clk_i),
   .wb_rst_i (wb_rst_i),
   ...
 );
 ```
 
-Dentro del `bind`, los nombres de la derecha son señales **de `uart_top`**, no del *top*. El ejemplo `uart_wb_sva.sv` trae dos propiedades para mostrar el formato (`assert` con mensaje y su `cover`). El conjunto completo de aserciones es parte del proyecto.
+Dentro del `bind`, los nombres de la derecha son señales **de `uart_top`**, no del *top*. `uart_sva.sv` contiene las propiedades Wishbone A-WB-01 y A-WB-03; A-WB-02 requiere definir el límite de ciclos en el plan antes de implementarse.
 
 ### 4.5 Entregar las interfaces al ambiente
 
@@ -161,9 +163,10 @@ Antes de `run_test()`, el *top* publica cada interfaz virtual en `uvm_config_db`
 
 ```systemverilog
 initial begin
-  uvm_config_db#(virtual wb_if)::set      (null, "uvm_test_top*", "wb_vif",  wb);
-  uvm_config_db#(virtual uart_ser_if)::set(null, "uvm_test_top*", "ser_vif", ser);
-  uvm_config_db#(virtual modem_if)::set   (null, "uvm_test_top*", "mdm_vif", mdm);
+  uvm_config_db#(virtual wishB_if)::set(null, "uvm_test_top*", "vif", wishB_bus);
+  uvm_config_db#(virtual serie_if)::set(null, "uvm_test_top*", "vif", serie_line);
+  uvm_config_db#(virtual mod_if)::set(null, "uvm_test_top*", "vif", mod_signals);
+  uvm_config_db#(virtual int_if)::set(null, "uvm_test_top*", "vif", int_signals);
   run_test();
 end
 ```
@@ -172,15 +175,15 @@ Del lado del ambiente, la forma recomendada es que **la prueba obtenga las inter
 
 ```systemverilog
 // En uart_base_test::build_phase
-if (!uvm_config_db#(virtual wb_if)::get(this, "", "wb_vif", wb_cfg.vif))
-  `uvm_fatal("NOVIF", "wb_vif no está en uvm_config_db")
-uvm_config_db#(wb_agent_cfg)::set(this, "env.wb_agt*", "cfg", wb_cfg);
+if (!uvm_config_db#(virtual wishB_if)::get(this, "", "vif", wishB_cfg.vif))
+  `uvm_fatal("NOVIF", "wishB_if no está en uvm_config_db")
+uvm_config_db#(config_wishB)::set(this, "env.wishB_agt*", "config_wishB", wishB_cfg);
 
-// En wb_agent::build_phase
-if (!uvm_config_db#(wb_agent_cfg)::get(this, "", "cfg", cfg))
-  `uvm_fatal("NOCFG", "wb_agent sin objeto de configuración")
+// En wishB_agent::build_phase
+if (!uvm_config_db#(config_wishB)::get(this, "", "config_wishB", cfg))
+  `uvm_fatal("NOCFG", "wishB_agent sin objeto de configuración")
 
-// En wb_driver::run_phase (cfg obtenido igual que en el agente)
+// En wishB_driver::run_phase (cfg obtenido igual que en el agente)
 @(cfg.vif.drv_cb);
 cfg.vif.drv_cb.stb <= 1'b1;
 ```
