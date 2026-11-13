@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// uart_ser_if.sv
+// serie_if.sv
 // Interfaz de la línea serie del UART.
 //
 //   stx  : salida serie del DUT   (stx_pad_o)  -> la observa el monitor TX
@@ -12,7 +12,7 @@
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
-interface uart_ser_if (input logic clk);
+interface serie_if (input logic clk);
 
   logic stx;
   logic srx;
@@ -32,4 +32,4 @@ interface uart_ser_if (input logic clk);
   modport drv (clocking drv_cb);
   modport mon (clocking mon_cb);
 
-endinterface : uart_ser_if
+endinterface : serie_if
