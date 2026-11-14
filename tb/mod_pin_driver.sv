@@ -42,7 +42,7 @@ class mod_pin_driver extends uvm_driver #(mod_pin_event);
         vif.drv_cb.ri  <= item.pin_inputs[1];
         vif.drv_cb.dcd <= item.pin_inputs[0];
 
-        `uvm_info("DRV", $sformatf("Driving pins: CTS=%0b, DSR=%0b, RI=%b, DCD=%b, espera=%0d ciclos extra", 
+        `uvm_info("DRV", $sformatf("Driving pins: CTS=%0b, DSR=%0b, RI=%b, DCD=%b, espera=%0ciclos extra", 
             item.pin_inputs[3], item.pin_inputs[2], item.pin_inputs[1], item.pin_inputs[0], item.idle_clocks),
              UVM_LOW)
     endtask
