@@ -11,10 +11,7 @@ class config_mod extends uvm_object ;
         super.new(name);
     endfunction
 
-//los pesos de mcr e ier representan la probabilidad de que
-// cada bit se active, por ejemplo si mcr_weights[0] = 50, 
-//significa que el bit 0 del
-// registro MCR tiene un 50% de probabilidad de activarse en cada evento de mod_pin_event
+//los pesos de mcr e ier representan la probabilidad de que cada bit se active
 function void check_knobs ();
 
     if(modem_pct > 100) begin
