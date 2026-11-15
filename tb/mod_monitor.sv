@@ -35,7 +35,10 @@ class mod_monitor extends uvm_monitor;
             current_pins = {vif.mon_cb.cts, vif.mon_cb.dsr, 
                             vif.mon_cb.ri,  vif.mon_cb.dcd,  
                             vif.mon_cb.rts, vif.mon_cb.dtr};
-            if (!have_previous|| current_pins != previous_pins) begin
+
+            if (!have_previous && $isunknown(current_pins))
+                continue;
+            if (!have_previous|| current_pins !== previous_pins) begin
             observed = mod_pin_event::type_id::create("observed");
             observed.pin_inputs = current_pins[5:2];
             observed.pin_outputs = current_pins[1:0];
