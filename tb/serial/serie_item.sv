@@ -1,194 +1,191 @@
-// Knobs y configuración aleatoria para la línea serie: formato de trama (LCR), divisor de baudrate, umbral de FIFO y tráfico.
-// Ref. Testplan: secciones 6.1 y 7 (plusargs SER, LCR, DL, FCR y TX).
-// Autor: Diego
+// Un carácter de la línea serie. La secuencia RX lo genera y arma la trama; los monitores de stx y srx lo publican.
 
-typedef enum bit [2:0] {PAR_NONE, PAR_ODD, PAR_EVEN, PAR_STICK1, PAR_STICK0} serie_parity_e;
+typedef enum bit [1:0] {SER_OK, SER_PARITY_ERR, SER_FRAME_ERR, SER_BREAK} serie_err_e;
+typedef enum bit       {SER_DIR_TX, SER_DIR_RX} serie_dir_e;
 
-class config_serie extends uvm_object;
-  `uvm_object_utils(config_serie)
+class serie_item extends uvm_sequence_item;
+  `uvm_object_utils(serie_item)
 
-  // Parámetros de línea que se programan en el DUT al arrancar la prueba
-  rand bit [1:0]       wls;
-  rand bit             stb;
-  rand serie_parity_e  parity;
-  rand bit [15:0]      dl;
-  rand bit [1:0]       fcr_tl;
-  rand bit             tx_break;
+  // Lo que decide la secuencia al aleatorizar
+  rand bit [7:0]    data;
+  rand serie_err_e  err;
+  rand bit          glitch;
+  rand int unsigned glitch_ticks;
+  rand bit          baud_out;
+  rand int          baud_dev_pct;
+  rand int unsigned idle_bits;
 
-  // Knobs de formato de trama y divisor de reloj
-  uint_q_t     lcr_wls_weights    = '{1, 1, 1, 1};
-  uint_q_t     lcr_stop_weights   = '{1, 1};
-  uint_q_t     lcr_parity_weights = '{1, 1, 1, 1, 1};
-  int unsigned dl_zero_pct        = 1;
-  int unsigned dl_max_fast        = 16;
-  int unsigned dl_max             = 65535;
-  int unsigned dl_tail_pct        = 2;
-  uint_q_t     fcr_tl_weights     = '{1, 1, 1, 1};
-  int unsigned fcr_clear_pct      = 10;
+  // Formato de línea con que se armó o se leyó el carácter
+  bit [7:0]    lcr;
+  bit [15:0]   dl;
 
-  // Knobs del tráfico TX (usados por la secuencia maestra sobre el bus Wishbone)
-  int unsigned tx_payload_max      = 32;
-  int unsigned tx_payload_tail_pct = 2;
-  int unsigned tx_payload_abs_max  = 256;
-  int unsigned tx_break_pct        = 3;
+  // La trama ya armada para el driver: cada segmento es un nivel de la línea y cuántos ciclos de reloj dura.
+  // Así el driver no tiene que saber nada de paridad ni de errores, solo copia esto a srx.
+  bit          seg_level[$];
+  int unsigned seg_clks[$];
 
-  // Knobs del tráfico RX y de la inyección de fallos en el agente serie
-  int unsigned ser_payload_max      = 32;
-  int unsigned ser_payload_tail_pct = 2;
-  int unsigned ser_payload_abs_max  = 256;
-  int unsigned ser_delay_max        = 20;
-  int unsigned ser_delay_tail_pct   = 2;
-  int unsigned ser_delay_abs_max    = 1000;
-  int unsigned ser_parity_err_pct   = 5;
-  int unsigned ser_frame_err_pct    = 5;
-  int unsigned ser_break_pct        = 2;
-  int unsigned ser_glitch_pct       = 3;
-  int unsigned ser_baud_dev_max     = 10;
-  int unsigned ser_baud_out_pct     = 20;
+  // Lo que vio el monitor. Se usan banderas separadas porque una misma trama puede traer PE y FE juntos.
+  serie_dir_e  dir;
+  bit          pe, fe, bi;
+  // El monitor no sabe qué desviación quiso meter la secuencia. Lo que sí ve es si un borde cayó cerca del
+  // punto de muestreo; en ese caso lo que leyó el UART depende de la fase y el scoreboard no compara el dato.
+  bit          marginal;
 
-  // Registro de cada knob con su valor efectivo y origen (default vs. plusarg) para facilitar la reproducibilidad
-  string knob_trace[$];
+  // La secuencia tiene que asignar este handle antes de randomize(), porque las restricciones leen sus knobs.
+  config_serie cfg;
 
-  constraint c_wls {
-    wls dist { 0 := lcr_wls_weights[0], 1 := lcr_wls_weights[1],
-               2 := lcr_wls_weights[2], 3 := lcr_wls_weights[3] };
+  constraint c_err {
+    err dist { SER_OK         := 100 - cfg.ser_parity_err_pct - cfg.ser_frame_err_pct - cfg.ser_break_pct,
+               SER_PARITY_ERR := cfg.ser_parity_err_pct,
+               SER_FRAME_ERR  := cfg.ser_frame_err_pct,
+               SER_BREAK      := cfg.ser_break_pct };
   }
 
-  constraint c_stop {
-    stb dist { 0 := lcr_stop_weights[0], 1 := lcr_stop_weights[1] };
+  // En un break el receptor mete 0 como dato en la FIFO, entonces dejamos el item igual para que cuadre.
+  constraint c_break_data { (err == SER_BREAK) -> data == 8'h00; }
+
+  // Un error de trama con todo en 0 dura lo mismo que un break y el receptor lo puede tomar como break.
+  // Con el primer bit de dato en 1 los dos casos nunca se confunden.
+  constraint c_frame_data { (err == SER_FRAME_ERR) -> data[0] == 1'b1; }
+
+  // El receptor revisa el bit de inicio a la mitad del bit y, si la línea ya volvió a 1, lo descarta.
+  // Por eso un pulso de hasta un cuarto de bit nunca se toma como dato.
+  constraint c_glitch {
+    glitch dist { 1 := cfg.ser_glitch_pct, 0 := 100 - cfg.ser_glitch_pct };
+    glitch_ticks inside {[1 : UART_GLITCH_MAX_TICKS]};
   }
 
-  constraint c_parity {
-    parity dist { PAR_NONE   := lcr_parity_weights[0], PAR_ODD    := lcr_parity_weights[1],
-                  PAR_EVEN   := lcr_parity_weights[2], PAR_STICK1 := lcr_parity_weights[3],
-                  PAR_STICK0 := lcr_parity_weights[4] };
+  // Dentro de la tolerancia el dato siempre llega bien. Fuera de ella puede llegar bien o con error
+  // de trama según dónde caiga el muestreo; el monitor lo marca como marginal.
+  constraint c_baud {
+    baud_out dist { 1 := cfg.ser_baud_out_pct, 0 := 100 - cfg.ser_baud_out_pct };
+    if (baud_out)
+      baud_dev_pct inside {[-int'(cfg.ser_baud_dev_max) : -(UART_BAUD_TOL_PCT + 1)],
+                           [UART_BAUD_TOL_PCT + 1 : int'(cfg.ser_baud_dev_max)]};
+    else
+      baud_dev_pct inside {[-UART_BAUD_TOL_PCT : UART_BAUD_TOL_PCT]};
   }
 
-  // Valores altos de DL alargan demasiado la duración de cada bit y vuelven eternas las simulaciones;
-  // por eso priorizamos el rango rápido [1 : dl_max_fast], dejando el resto y DL=0 con baja probabilidad.
-  constraint c_dl {
-    dl dist { 0                          :/ dl_zero_pct,
-              [1 : dl_max_fast]          :/ 100 - dl_zero_pct - dl_tail_pct,
-              [dl_max_fast + 1 : dl_max] :/ dl_tail_pct };
+  // Las esperas largas alargan mucho la simulación, así que por defecto casi siempre son cortas.
+  // Siguen siendo posibles con ser_delay_tail_pct, y son las que provocan el timeout.
+  constraint c_idle {
+    idle_bits dist { [0 : cfg.ser_delay_max]                         :/ 100 - cfg.ser_delay_tail_pct,
+                     [cfg.ser_delay_max + 1 : cfg.ser_delay_abs_max] :/ cfg.ser_delay_tail_pct };
   }
 
-  constraint c_fcr {
-    fcr_tl dist { 0 := fcr_tl_weights[0], 1 := fcr_tl_weights[1],
-                  2 := fcr_tl_weights[2], 3 := fcr_tl_weights[3] };
-  }
-
-  constraint c_tx_break {
-    tx_break dist { 1 := tx_break_pct, 0 := 100 - tx_break_pct };
-  }
-
-  function new(string name = "config_serie");
+  function new(string name = "serie_item");
     super.new(name);
   endfunction
 
-  // Construye el byte del registro LCR a partir de los campos aleatorizados (mantiene DLAB = 0)
-  function bit [7:0] get_lcr();
-    bit pe, ep, sp;
-    case (parity)
-      PAR_NONE:   {sp, ep, pe} = 3'b000;
-      PAR_ODD:    {sp, ep, pe} = 3'b001;
-      PAR_EVEN:   {sp, ep, pe} = 3'b011;
-      PAR_STICK1: {sp, ep, pe} = 3'b101;
-      PAR_STICK0: {sp, ep, pe} = 3'b111;
+  function void pre_randomize();
+    if (cfg == null)
+      `uvm_fatal("CFG", "serie_item sin config_serie: la secuencia debe asignar cfg antes de randomize()")
+  endfunction
+
+  // La secuencia llama esto después de randomize(), con el LCR y el DL que tiene el espejo del RAL.
+  function void build_frame(bit [7:0] lcr_now, bit [15:0] dl_now);
+    int unsigned bit_clks_nom;
+    int unsigned nbits;
+    int unsigned break_bits;
+    bit          p;
+    bit          sym_level[$];
+    int unsigned sym_halves[$];
+    real         half_clks;
+    int unsigned halves_done;
+    int unsigned edge_prev;
+    int unsigned edge_next;
+
+    lcr = lcr_now;
+    dl  = dl_now;
+    seg_level.delete();
+    seg_clks.delete();
+
+    // Con DL = 0 el UART no recibe nada, así que no se arma trama y la línea se queda en reposo.
+    if (dl_now == 0) return;
+
+    bit_clks_nom = UART_OVERSAMPLE * dl_now;
+    nbits        = lcr_now[1:0] + 5;
+
+    add_seg(1'b1, idle_bits * bit_clks_nom);
+
+    // Después del glitch la línea se queda un bit entero en 1 para que el receptor vuelva a reposo
+    // antes del bit de inicio de verdad.
+    if (glitch) begin
+      add_seg(1'b0, glitch_ticks * dl_now);
+      add_seg(1'b1, bit_clks_nom);
+    end
+
+    // El receptor marca break cuando la línea pasa en 0 más de lo que dura un carácter completo.
+    // Se calcula con el carácter más largo posible para este formato y se deja en 0 varias veces eso.
+    if (err == SER_BREAK) begin
+      break_bits = 1 + nbits + lcr_now[3] + 2;
+      add_seg(1'b0, UART_BREAK_CHARS * break_bits * bit_clks_nom);
+      add_seg(1'b1, bit_clks_nom);
+      return;
+    end
+
+    // La trama se arma en medios bits porque con 5 bits de dato el UART usa 1.5 bits de parada.
+    sym_level.push_back(1'b0);
+    sym_halves.push_back(2);
+    for (int i = 0; i < nbits; i++) begin
+      sym_level.push_back(data[i]);
+      sym_halves.push_back(2);
+    end
+    if (lcr_now[3]) begin
+      p = calc_parity(lcr_now, data, nbits);
+      if (err == SER_PARITY_ERR) p = ~p;
+      sym_level.push_back(p);
+      sym_halves.push_back(2);
+    end
+    // El receptor solo revisa el primer bit de parada, así que el error de trama se mete en ese.
+    sym_level.push_back(err == SER_FRAME_ERR ? 1'b0 : 1'b1);
+    sym_halves.push_back(2);
+    if (lcr_now[2]) begin
+      sym_level.push_back(1'b1);
+      sym_halves.push_back(nbits == 5 ? 1 : 2);
+    end
+
+    // Los bordes se calculan acumulados desde el inicio de la trama. Si se redondeara cada bit por
+    // separado, con DL pequeño una desviación de 2 % se perdería y todos los bits saldrían iguales.
+    half_clks   = bit_clks_nom * (100.0 + baud_dev_pct) / 200.0;
+    halves_done = 0;
+    edge_prev   = 0;
+    foreach (sym_level[i]) begin
+      halves_done += sym_halves[i];
+      edge_next = $rtoi(halves_done * half_clks + 0.5);
+      add_seg(sym_level[i], edge_next - edge_prev);
+      edge_prev = edge_next;
+    end
+
+    // Después de un error de trama el receptor espera ver la línea en 1 antes de aceptar otro carácter.
+    if (err == SER_FRAME_ERR) add_seg(1'b1, bit_clks_nom);
+  endfunction
+
+  // LCR[4] elige par o impar y LCR[5] fija el bit (stick), igual que en la tabla de LCR de la especificación.
+  // Es static porque el monitor también la usa para revisar la paridad que observa.
+  static function bit calc_parity(bit [7:0] lcr_now, bit [7:0] d, int unsigned nbits);
+    bit x = 1'b0;
+    bit p;
+    for (int i = 0; i < nbits; i++) x ^= d[i];
+    case ({lcr_now[4], lcr_now[5]})
+      2'b00: p = ~x;
+      2'b10: p =  x;
+      2'b01: p = 1'b1;
+      2'b11: p = 1'b0;
     endcase
-    return {1'b0, tx_break, sp, ep, pe, stb, wls};
+    return p;
   endfunction
 
-  // Punto único de lectura de plusargs para este bloque; el test lo invoca antes de randomize()
-  function void parse_plusargs();
-    knob_trace.delete();
-    lcr_wls_weights      = read_weights("UART_LCR_WLS_WEIGHTS",     lcr_wls_weights);
-    lcr_stop_weights     = read_weights("UART_LCR_STOP_WEIGHTS",    lcr_stop_weights);
-    lcr_parity_weights   = read_weights("UART_LCR_PARITY_WEIGHTS",  lcr_parity_weights);
-    dl_zero_pct          = read_int("UART_DL_ZERO_PCT",             dl_zero_pct);
-    dl_max_fast          = read_int("UART_DL_MAX_FAST",             dl_max_fast);
-    dl_max               = read_int("UART_DL_MAX",                  dl_max);
-    dl_tail_pct          = read_int("UART_DL_TAIL_PCT",             dl_tail_pct);
-    fcr_tl_weights       = read_weights("UART_FCR_TL_WEIGHTS",      fcr_tl_weights);
-    fcr_clear_pct        = read_int("UART_FCR_CLEAR_PCT",           fcr_clear_pct);
-    tx_payload_max       = read_int("UART_TX_PAYLOAD_MAX",          tx_payload_max);
-    tx_payload_tail_pct  = read_int("UART_TX_PAYLOAD_TAIL_PCT",     tx_payload_tail_pct);
-    tx_break_pct         = read_int("UART_TX_BREAK_PCT",            tx_break_pct);
-    ser_payload_max      = read_int("UART_SER_PAYLOAD_MAX",         ser_payload_max);
-    ser_payload_tail_pct = read_int("UART_SER_PAYLOAD_TAIL_PCT",    ser_payload_tail_pct);
-    ser_delay_max        = read_int("UART_SER_DELAY_MAX",           ser_delay_max);
-    ser_delay_tail_pct   = read_int("UART_SER_DELAY_TAIL_PCT",      ser_delay_tail_pct);
-    ser_parity_err_pct   = read_int("UART_SER_PARITY_ERR_PCT",      ser_parity_err_pct);
-    ser_frame_err_pct    = read_int("UART_SER_FRAME_ERR_PCT",       ser_frame_err_pct);
-    ser_break_pct        = read_int("UART_SER_BREAK_PCT",           ser_break_pct);
-    ser_glitch_pct       = read_int("UART_SER_GLITCH_PCT",          ser_glitch_pct);
-    ser_baud_dev_max     = read_int("UART_SER_BAUD_DEV_MAX",        ser_baud_dev_max);
-    ser_baud_out_pct     = read_int("UART_SER_BAUD_OUT_PCT",        ser_baud_out_pct);
+  local function void add_seg(bit level, int unsigned clks);
+    if (clks == 0) return;
+    seg_level.push_back(level);
+    seg_clks.push_back(clks);
   endfunction
 
-  // Valida que los knobs no generen rangos vacíos ni restricciones contradictorias,
-  // evitando fallos silenciosos o mensajes crípticos del solver durante randomize().
-  function void check_knobs();
-    check(lcr_wls_weights.size() == 4,    "UART_LCR_WLS_WEIGHTS necesita 4 pesos");
-    check(lcr_stop_weights.size() == 2,   "UART_LCR_STOP_WEIGHTS necesita 2 pesos");
-    check(lcr_parity_weights.size() == 5, "UART_LCR_PARITY_WEIGHTS necesita 5 pesos");
-    check(fcr_tl_weights.size() == 4,     "UART_FCR_TL_WEIGHTS necesita 4 pesos");
-    check(lcr_wls_weights.sum() > 0 && lcr_stop_weights.sum() > 0 &&
-          lcr_parity_weights.sum() > 0 && fcr_tl_weights.sum() > 0,
-          "una lista de pesos no puede ser toda 0");
-
-    check(dl_max <= 65535,                   "UART_DL_MAX no cabe en 16 bits");
-    check(dl_max_fast >= 1 && dl_max_fast <= dl_max, "UART_DL_MAX_FAST tiene que estar entre 1 y UART_DL_MAX");
-    check(dl_zero_pct + dl_tail_pct <= 100,  "UART_DL_ZERO_PCT + UART_DL_TAIL_PCT pasa de 100");
-    check(dl_tail_pct == 0 || dl_max_fast < dl_max, "la cola de DL está vacía: UART_DL_MAX_FAST igual a UART_DL_MAX");
-
-    check(ser_parity_err_pct + ser_frame_err_pct + ser_break_pct <= 100,
-          "la suma de UART_SER_PARITY_ERR_PCT, FRAME_ERR_PCT y BREAK_PCT pasa de 100");
-    check(ser_glitch_pct <= 100 && ser_baud_out_pct <= 100 && fcr_clear_pct <= 100 && tx_break_pct <= 100,
-          "un porcentaje pasa de 100");
-    check(ser_baud_out_pct == 0 || ser_baud_dev_max > UART_BAUD_TOL_PCT,
-          "hay tramas fuera de tolerancia pero UART_SER_BAUD_DEV_MAX no pasa la tolerancia");
-
-    check_tail("UART_SER_DELAY",   ser_delay_max,   ser_delay_tail_pct,   ser_delay_abs_max);
-    check_tail("UART_SER_PAYLOAD", ser_payload_max, ser_payload_tail_pct, ser_payload_abs_max);
-    check_tail("UART_TX_PAYLOAD",  tx_payload_max,  tx_payload_tail_pct,  tx_payload_abs_max);
-    check(ser_payload_max >= 1 && tx_payload_max >= 1, "una ráfaga tiene que tener al menos 1 carácter");
+  function string convert2string();
+    return $sformatf("dir=%s data=0x%02h err=%s glitch=%0b(%0d) baud=%0d%% idle=%0d lcr=0x%02h dl=%0d segs=%0d pe=%0b fe=%0b bi=%0b marginal=%0b",
+                     dir.name(), data, err.name(), glitch, glitch_ticks, baud_dev_pct, idle_bits,
+                     lcr, dl, seg_level.size(), pe, fe, bi, marginal);
   endfunction
 
-  function void print_knobs();
-    foreach (knob_trace[i])
-      `uvm_info("KNOBS", knob_trace[i], UVM_LOW)
-  endfunction
-
-  local function int unsigned read_int(string name, int unsigned def);
-    uvm_cmdline_processor clp = uvm_cmdline_processor::get_inst();
-    string s;
-    if (clp.get_arg_value({"+", name, "="}, s)) begin
-      knob_trace.push_back($sformatf("+%s = %0d (plusarg)", name, s.atoi()));
-      return s.atoi();
-    end
-    knob_trace.push_back($sformatf("+%s = %0d (default)", name, def));
-    return def;
-  endfunction
-
-  local function uint_q_t read_weights(string name, uint_q_t def);
-    uvm_cmdline_processor clp = uvm_cmdline_processor::get_inst();
-    string s;
-    if (clp.get_arg_value({"+", name, "="}, s)) begin
-      knob_trace.push_back($sformatf("+%s = %s (plusarg)", name, s));
-      return config_utils::csv_to_ints(s);
-    end
-    knob_trace.push_back($sformatf("+%s = %p (default)", name, def));
-    return def;
-  endfunction
-
-  local function void check(bit ok, string msg);
-    if (!ok) `uvm_fatal("CFG", {"config_serie: ", msg})
-  endfunction
-
-  // Si hay probabilidad de cola (> 0%), debe existir al menos un valor válido por encima del rango rápido
-  local function void check_tail(string name, int unsigned max_fast, int unsigned tail_pct, int unsigned abs_max);
-    check(tail_pct <= 100, {name, "_TAIL_PCT pasa de 100"});
-    check(tail_pct == 0 || max_fast < abs_max, {"la cola de ", name, " está vacía: el máximo rápido llega al tope"});
-  endfunction
-
-endclass : config_serie
+endclass : serie_item
