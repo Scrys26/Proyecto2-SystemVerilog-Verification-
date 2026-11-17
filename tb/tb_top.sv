@@ -1,22 +1,12 @@
-// -----------------------------------------------------------------------------
-// tb_top.sv
-// Módulo superior del banco de pruebas: genera reloj y reset, instancia las
-// interfaces y el DUT, y entrega las interfaces
-// virtuales al ambiente UVM antes de run_test().
-// -----------------------------------------------------------------------------
 `timescale 1ns/1ps
-//`include "uart_defines.v"
 
 module tb_top;
 
   import uvm_pkg::*;
   `include "uvm_macros.svh"
   import uart_hello_pkg::*;   // agreguen aquí el paquete de su ambiente
+  import uart_wb_smoke_pkg::*;
 
-  // ---------------------------------------------------------------------------
-  // Reloj y reset
-  // ---------------------------------------------------------------------------
-  // 50 MHz: con DL = 1 la tasa es 50e6 / 16 = 3.125 Mbaud (simulaciones rápidas).
   parameter real CLK_PERIOD_NS = 20.0;
 
   logic clk = 1'b0;
@@ -50,9 +40,6 @@ module tb_top;
     wishB_bus.rst     = 1'b0;
   end
 
-  // ---------------------------------------------------------------------------
-  // DUT: conexiones siempre por nombre
-  // ---------------------------------------------------------------------------
   uart_top dut (
     .wb_clk_i  (clk),
     .wb_rst_i  (wishB_bus.rst),
@@ -73,18 +60,35 @@ module tb_top;
     .dsr_pad_i (mod_signals.dsr),
     .ri_pad_i  (mod_signals.ri),
     .dcd_pad_i (mod_signals.dcd)
+    .wb_rst_i  (wishB_bus.rst),
+    .wb_adr_i  (wishB_bus.adr),
+    .wb_dat_i  (wishB_bus.dat_m2s),
+    .wb_dat_o  (wishB_bus.dat_s2m),
+    .wb_we_i   (wishB_bus.we),
+    .wb_stb_i  (wishB_bus.stb),
+    .wb_cyc_i  (wishB_bus.cyc),
+    .wb_ack_o  (wishB_bus.ack),
+    .wb_sel_i  (wishB_bus.sel),
+    .int_o     (int_signals.int_o),
+    .stx_pad_o (serie_line.stx),
+    .srx_pad_i (serie_line.srx),
+    .rts_pad_o (mod_signals.rts),
+    .cts_pad_i (mod_signals.cts),
+    .dtr_pad_o (mod_signals.dtr),
+    .dsr_pad_i (mod_signals.dsr),
+    .ri_pad_i  (mod_signals.ri),
+    .dcd_pad_i (mod_signals.dcd)
 `ifdef UART_HAS_BAUDRATE_OUTPUT
+   ,.baud_o    (serie_line.baud)
    ,.baud_o    (serie_line.baud)
 `endif
   );
 
 `ifndef UART_HAS_BAUDRATE_OUTPUT
   assign serie_line.baud = 1'b0;
+  assign serie_line.baud = 1'b0;
 `endif
 
-  // ---------------------------------------------------------------------------
-  // Entregar las interfaces al ambiente y arrancar la prueba
-  // ---------------------------------------------------------------------------
   initial begin
     uvm_config_db#(virtual wishB_if)::set(null, "uvm_test_top*", "vif", wishB_bus);
     uvm_config_db#(virtual serie_if)::set(null, "uvm_test_top*", "vif", serie_line);

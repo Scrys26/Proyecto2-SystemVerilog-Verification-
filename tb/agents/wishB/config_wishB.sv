@@ -28,6 +28,7 @@ class config_wishB extends uvm_object;
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   // Solo la llama uart_base_test .
 =======
   // Solo la llama uart_base_test (E2).
@@ -35,6 +36,9 @@ class config_wishB extends uvm_object;
 =======
   // Solo la llama uart_base_test .
 >>>>>>> 1b70ae5 (Add wishB_driver and wishB_sequencer classes for Wishbone protocol handling)
+=======
+  // Solo la llama uart_base_test (E2).
+>>>>>>> 368c4c43f048b6d27090a6cf85bdb0209ec4dce8
   function void parse_plusargs();
     knob_trace.delete();
     wb_delay_max      = read_int("UART_WB_DELAY_MAX",          wb_delay_max);

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // -----------------------------------------------------------------------------
 // serie_if.sv
 // Interfaz de la línea serie del UART.
@@ -10,6 +11,8 @@
 // para medir el ancho de bit (16 x DL ciclos por bit). El clocking block
 // solo se usa para muestrear y manejar sin carreras.
 // -----------------------------------------------------------------------------
+=======
+>>>>>>> 368c4c43f048b6d27090a6cf85bdb0209ec4dce8
 `timescale 1ns/1ps
 
 interface serie_if (input logic clk);
@@ -21,7 +24,11 @@ interface serie_if (input logic clk);
   clocking drv_cb @(posedge clk);
     default input #1step output #1;
     output srx;
+<<<<<<< HEAD
     input  stx;
+=======
+    input stx;
+>>>>>>> 368c4c43f048b6d27090a6cf85bdb0209ec4dce8
   endclocking
 
   clocking mon_cb @(posedge clk);
