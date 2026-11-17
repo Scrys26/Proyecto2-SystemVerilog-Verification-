@@ -3,7 +3,6 @@
 +incdir+tb
 +incdir+tb/interfaces
 +incdir+tb/agents/wishB
-+incdir+tb/agents/wishB
 +incdir+test
 +incdir+sva
 
@@ -34,5 +33,4 @@ test/uart_hello_pkg.sv
 test/uart_wb_smoke_pkg.sv
 
 // ---- Top ----
-test/uart_hello_pkg.sv
 tb/tb_top.sv
