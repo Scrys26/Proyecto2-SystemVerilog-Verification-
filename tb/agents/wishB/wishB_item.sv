@@ -9,7 +9,7 @@ class wishB_item extends uvm_sequence_item;
   rand bit [`UART_DATA_WIDTH-1:0] dat;    // en lectura se sobrescribe con dat_s2m
   rand int unsigned               delay;  // ciclos antes de la transferencia
   rand int unsigned               stb_delay; // ciclos con cyc = 1 y stb = 0
-  int unsigned                    ack_lat; // lo llena el monitor
+  int unsigned                    ack_lat; // lo llena el monitor; solo para depuración
   uvm_status_e                    status = UVM_IS_OK; // lo llena el driver; el adaptador lo pasa al RAL
 
   constraint c_sel   { soft $countones(sel) == 1; }
