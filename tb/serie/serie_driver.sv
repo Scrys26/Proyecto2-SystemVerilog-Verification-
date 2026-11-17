@@ -1,24 +1,23 @@
-// Driver de la línea serie: pone en srx la trama que ya viene armada dentro del item.
-
+// Pone en srx la trama que ya viene armada en el item.
 class serie_driver extends uvm_driver #(serie_item);
-  `uvm_component_utils(serie_driver)
+  `uvm_component_utils(serie_driver) // incluye el factory y el create() de la clase
 
-  virtual uart_ser_if vif;
+  virtual serie_if vif;
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
   endfunction
 
+// Primero busca la conexión si no la encuentra tira error
   function void build_phase(uvm_phase phase);
     super.build_phase(phase);
-    if (!uvm_config_db#(virtual uart_ser_if)::get(this, "", "ser_vif", vif))
-      `uvm_fatal("CFG", "serie_driver no encontró ser_vif en uvm_config_db")
+    if (!uvm_config_db#(virtual serie_if)::get(this, "", "vif", vif))
+      `uvm_fatal("CFG", "serie_driver no encontró la interfaz serie_if en uvm_config_db")
   endfunction
 
-  // El driver no decide nada: si la trama va buena o con error ya lo resolvió la secuencia.
-  // Aquí solo se recorre la lista de segmentos y cada nivel se mantiene los ciclos que dice el item.
+// Pide un carácter, copia su receta al cable segmento por segmento, avisa que terminó, y vuelve a empezar.
   task run_phase(uvm_phase phase);
-    // Arrancamos con la línea en 1, porque si queda en 0 o en X el receptor lo toma como un bit de inicio.
+    // La línea arranca en 1, porque si queda en 0 o en X el UART lo toma como un bit de inicio
     vif.drv_cb.srx <= 1'b1;
     forever begin
       seq_item_port.get_next_item(req);
