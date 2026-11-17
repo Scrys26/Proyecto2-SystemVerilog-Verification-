@@ -1,4 +1,4 @@
-# UART 16550: verificacion con SystemVerilog y UVM
+# UART 16550: verificacion con SystemVerilog y UVM_
 
 Base de verificacion funcional del UART 16550 con Synopsys VCS y UVM 1.2.
 El RTL en `rtl/verilog/` es el DUT de referencia y no debe modificarse.
