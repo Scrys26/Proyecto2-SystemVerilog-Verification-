@@ -26,7 +26,11 @@ class config_wishB extends uvm_object;
     super.new(name);
   endfunction
 
+<<<<<<< HEAD
   // Solo la llama uart_base_test .
+=======
+  // Solo la llama uart_base_test (E2).
+>>>>>>> bb973a4 (Agrega config_wishB y el knob UART_WB_STB_DELAY_MAX)
   function void parse_plusargs();
     knob_trace.delete();
     wb_delay_max      = read_int("UART_WB_DELAY_MAX",          wb_delay_max);
