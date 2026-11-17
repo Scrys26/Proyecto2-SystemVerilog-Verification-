@@ -1,0 +1,122 @@
+// Mapa de registros del UART 16550 
+// Direcciones de byte. DLAB = LCR[7] selecciona RBR/THR/IER o DLL/DLM.
+
+addrmap uart_regs {
+  name = "UART DLAB = 0";
+  default regwidth    = 8;
+  default accesswidth = 8;
+  default hw = rw;
+
+  // Dir 0: RBR (lectura) y THR (escritura) comparten direccion
+  reg {
+    field { sw = r; } data[7:0];
+  } RBR @ 0x0;
+
+  reg {
+    field { sw = w; } data[7:0];
+  } THR @ 0x0;
+
+  // Dir 1: IER
+  reg {
+    field { sw = rw; } erbfi[0:0] = 0;
+    field { sw = rw; } etbei[1:1] = 0;
+    field { sw = rw; } elsi[2:2]  = 0;
+    field { sw = rw; } edssi[3:3] = 0;
+    field { sw = r;  } reservado[7:4] = 0;
+  } IER @ 0x1;
+
+  // Dir 2: IIR (lectura) y FCR (escritura)
+  reg {
+    field { sw = r; } int_pending[0:0] = 1;
+    field { sw = r; } int_id[3:1]      = 0;
+    field { sw = r; } fifo_en[7:4]     = 0xC;
+  } IIR @ 0x2;
+
+  reg {
+    field { sw = w; } rsvd0[0:0]       = 0;
+    field { sw = w; singlepulse; } rx_fifo_rst[1:1] = 0;
+    field { sw = w; singlepulse; } tx_fifo_rst[2:2] = 0;
+    field { sw = w; } rsvd1[5:3]       = 0;
+    field { sw = w; } rx_trigger[7:6]  = 0x3;
+  } FCR @ 0x2;
+
+  // Dir 3: LCR
+  reg {
+    field { sw = rw; } wls[1:0] = 0x3;
+    field { sw = rw; } stb[2:2] = 0;
+    field { sw = rw; } pen[3:3] = 0;
+    field { sw = rw; } eps[4:4] = 0;
+    field { sw = rw; } sp[5:5]  = 0;
+    field { sw = rw; } bc[6:6]  = 0;
+    field { sw = rw; } dlab[7:7] = 0;
+  } LCR @ 0x3;
+
+  // Dir 4: MCR
+  reg {
+    field { sw = w; } dtr[0:0]  = 0;
+    field { sw = w; } rts[1:1]  = 0;
+    field { sw = w; } out1[2:2] = 0;
+    field { sw = w; } out2[3:3] = 0;
+    field { sw = w; } loop[4:4] = 0;
+    field { sw = w; } rsvd[7:5] = 0;
+  } MCR @ 0x4;
+
+  // Dir 5: LSR (bits de error se limpian al leer)
+  reg {
+    field { sw = r; }        dr[0:0]   = 0;
+    field { sw = r; rclr; }  oe[1:1]   = 0;
+    field { sw = r; rclr; }  pe[2:2]   = 0;
+    field { sw = r; rclr; }  fe[3:3]   = 0;
+    field { sw = r; rclr; }  bi[4:4]   = 0;
+    field { sw = r; }        thre[5:5] = 1;
+    field { sw = r; }        temt[6:6] = 1;
+    field { sw = r; rclr; }  error_en_fifo[7:7] = 0;
+  } LSR @ 0x5;
+
+  // Dir 6: MSR (deltas se limpian al leer, estado sin reset definido)
+  reg {
+    field { sw = r; rclr; } dcts[0:0] = 0;
+    field { sw = r; rclr; } ddsr[1:1] = 0;
+    field { sw = r; rclr; } teri[2:2] = 0;
+    field { sw = r; rclr; } ddcd[3:3] = 0;
+    field { sw = r; } cts[4:4];
+    field { sw = r; } dsr[5:5];
+    field { sw = r; } ri[6:6];
+    field { sw = r; } dcd[7:7];
+  } MSR @ 0x6;
+
+  // Dir 7: SCR (scratch, implementado por el RTL)
+  reg {
+    field { sw = rw; } scratch[7:0] = 0;
+  } SCR @ 0x7;
+
+  // Dir 8: Debug 1 (solo modo 32 bits)
+  reg {
+    regwidth = 32;
+    accesswidth = 32;
+    field { sw = r; hw = w; } data[31:0];
+  } DEBUG1 @ 0x8;
+
+  // Dir 12: Debug 2 (solo modo 32 bits)
+  reg {
+    regwidth = 32;
+    accesswidth = 32;
+    field { sw = r; hw = w; } data[23:0];
+    field { sw = r; } reservado[31:24] = 0;
+  } DEBUG2 @ 0xC;
+};
+
+// Registros visibles con DLAB = 1 (comparten direccion 0 y 1)
+addrmap uart_dl_regs {
+  name = "UART DLAB = 1";
+  default regwidth    = 8;
+  default accesswidth = 8;
+
+  reg {
+    field { sw = rw; } dl_lsb[7:0] = 0;
+  } DLL @ 0x0;
+
+  reg {
+    field { sw = rw; } dl_msb[7:0] = 0;
+  } DLM @ 0x1;
+};

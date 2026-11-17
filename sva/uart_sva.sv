@@ -20,7 +20,7 @@ module uart_sva #(
   default clocking cb @(posedge wb_clk_i); endclocking
   default disable iff (wb_rst_i);
 
-  // La transferencia se mantiene estable durante la espera. Ref: A-WB-01.
+  // La transferencia se mantiene estable durante la espera
   property p_wb_01;
     (wb_cyc_i && wb_stb_i && !wb_ack_o) |=>
       (wb_stb_i && $stable(wb_adr_i) && $stable(wb_we_i) && $stable(wb_sel_i) &&
@@ -30,7 +30,7 @@ module uart_sva #(
     else $error("Wishbone: el maestro cambió la transferencia antes de recibir ack");
   C_WB_01: cover property (wb_cyc_i && wb_stb_i && !wb_ack_o ##1 wb_ack_o);
 
-  // Detecta un esclavo que no responde; el driver solo evita colgarse. Ref: A-WB-02.
+  // Detecta un esclavo que no responde el driver solo evita colgarse
   property p_wb_02;
     (wb_cyc_i && wb_stb_i && !wb_ack_o) |-> ##[1:WB_ACK_MAX_CYCLES] wb_ack_o;
   endproperty
@@ -38,7 +38,7 @@ module uart_sva #(
     else $error("Wishbone: wb_ack_o no llegó en %0d ciclos", WB_ACK_MAX_CYCLES);
   C_WB_02: cover property ((wb_cyc_i && wb_stb_i && !wb_ack_o) ##[1:WB_ACK_MAX_CYCLES] wb_ack_o);
 
-  // Los valores desconocidos no deben propagarse tras reset. Ref: A-WB-03.
+  // Los valores desconocidos no deben propagarse tras reset
   property p_wb_03;
     !$isunknown({wb_ack_o, wb_dat_o});
   endproperty
