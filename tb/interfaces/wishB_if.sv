@@ -12,7 +12,7 @@ interface wishB_if (input logic clk);
   logic [`UART_ADDR_WIDTH-1:0]  adr;
   logic [`UART_DATA_WIDTH-1:0]  dat_m2s;
   logic [`UART_DATA_WIDTH-1:0]  dat_s2m;
-  // wb_sel_i es de 4 bits en ambos modos (uart_top.v:171); en 8 bits el DUT lo ignora (uart_top.v:236).
+  // wb_sel_i es de 4 bits en ambos modos (uart_top.v:171) en 8 bits el DUT lo ignora (uart_top.v:236).
   logic [3:0]                   sel;
   logic                         we;
   logic                         stb;
