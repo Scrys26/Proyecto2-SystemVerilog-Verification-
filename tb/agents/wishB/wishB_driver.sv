@@ -19,7 +19,7 @@ class wishB_driver extends uvm_driver #(wishB_item);
     bus_idle();
     wait (vif.rst === 1'b1);
     wait (vif.rst === 1'b0);
-    @(vif.drv_cb);
+    @(vif.driver_cb);
     forever begin
       seq_item_port.get_next_item(req);
       drive(req);
@@ -30,34 +30,34 @@ class wishB_driver extends uvm_driver #(wishB_item);
   task drive(wishB_item it);
     int unsigned n = 0;
 
-    repeat (it.delay) @(vif.drv_cb);
-    vif.drv_cb.cyc     <= 1;
-    vif.drv_cb.stb     <= 0;
-    vif.drv_cb.adr     <= it.adr;
-    vif.drv_cb.we      <= it.we;
-    vif.drv_cb.sel     <= it.sel;
-    vif.drv_cb.dat_m2s <= it.dat;
-    repeat (it.stb_delay) @(vif.drv_cb);
-    vif.drv_cb.stb     <= 1;
+    repeat (it.delay) @(vif.driver_cb);
+    vif.driver_cb.cyc     <= 1;
+    vif.driver_cb.stb     <= 0;
+    vif.driver_cb.adr     <= it.adr;
+    vif.driver_cb.we      <= it.we;
+    vif.driver_cb.sel     <= it.sel;
+    vif.driver_cb.dat_m2s <= it.dat;
+    repeat (it.stb_delay) @(vif.driver_cb);
+    vif.driver_cb.stb     <= 1;
 
     do begin
-      @(vif.drv_cb);
+      @(vif.driver_cb);
       n++;
       if (n > WB_ACK_TIMEOUT_CYCLES)
         `uvm_fatal("WB", $sformatf("Sin ack tras %0d ciclos: %s", n - 1, it.sprint()))
-    end while (!vif.drv_cb.ack);
+    end while (!vif.driver_cb.ack);
 
-    if (!it.we) it.dat = vif.drv_cb.dat_s2m;
+    if (!it.we) it.dat = vif.driver_cb.dat_s2m;
     bus_idle();
   endtask
 
   task bus_idle();
-    vif.drv_cb.cyc     <= 0;
-    vif.drv_cb.stb     <= 0;
-    vif.drv_cb.we      <= 0;
-    vif.drv_cb.sel     <= 0;
-    vif.drv_cb.adr     <= 0;
-    vif.drv_cb.dat_m2s <= 0;
+    vif.driver_cb.cyc     <= 0;
+    vif.driver_cb.stb     <= 0;
+    vif.driver_cb.we      <= 0;
+    vif.driver_cb.sel     <= 0;
+    vif.driver_cb.adr     <= 0;
+    vif.driver_cb.dat_m2s <= 0;
   endtask
 
 endclass : wishB_driver

@@ -45,22 +45,22 @@ package uart_hello_pkg;
     // wb_sel_i = 4'b1000 >> reg_addr[1:0] y viaja en el carril 3 - reg_addr[1:0].
     task automatic wishB_read(input bit [4:0] reg_addr, output bit [7:0] read_data);
       int byte_lane;
-      @(wishB_vif.drv_cb);
-      wishB_vif.drv_cb.adr <= reg_addr;
+      @(wishB_vif.driver_cb);
+      wishB_vif.driver_cb.adr <= reg_addr;
 `ifdef DATA_BUS_WIDTH_8
-      wishB_vif.drv_cb.sel <= 4'b0001;
+      wishB_vif.driver_cb.sel <= 4'b0001;
       byte_lane = 0;
 `else
-      wishB_vif.drv_cb.sel <= 4'b1000 >> reg_addr[1:0];
+      wishB_vif.driver_cb.sel <= 4'b1000 >> reg_addr[1:0];
       byte_lane = 3 - reg_addr[1:0];
 `endif
-      wishB_vif.drv_cb.we  <= 1'b0;
-      wishB_vif.drv_cb.cyc <= 1'b1;
-      wishB_vif.drv_cb.stb <= 1'b1;
-      do @(wishB_vif.drv_cb); while (wishB_vif.drv_cb.ack !== 1'b1);
-      read_data = wishB_vif.drv_cb.dat_s2m[8*byte_lane +: 8];
-      wishB_vif.drv_cb.cyc <= 1'b0;
-      wishB_vif.drv_cb.stb <= 1'b0;
+      wishB_vif.driver_cb.we  <= 1'b0;
+      wishB_vif.driver_cb.cyc <= 1'b1;
+      wishB_vif.driver_cb.stb <= 1'b1;
+      do @(wishB_vif.driver_cb); while (wishB_vif.driver_cb.ack !== 1'b1);
+      read_data = wishB_vif.driver_cb.dat_s2m[8*byte_lane +: 8];
+      wishB_vif.driver_cb.cyc <= 1'b0;
+      wishB_vif.driver_cb.stb <= 1'b0;
     endtask
 
     task run_phase(uvm_phase phase);
@@ -69,7 +69,7 @@ package uart_hello_pkg;
 
       // Esperar a que termine el reset que genera tb_top.
       wait (wishB_vif.rst === 1'b0);
-      repeat (2) @(wishB_vif.drv_cb);
+      repeat (2) @(wishB_vif.driver_cb);
 
       wishB_read(5'd3, lcr_value);
       wishB_read(5'd2, iir_value);
@@ -86,7 +86,7 @@ package uart_hello_pkg;
       if (serie_vif.stx !== 1'b1)
         `uvm_error("HELLO", "stx_pad_o debería estar en reposo (1) después de reset")
 
-      repeat (10) @(wishB_vif.drv_cb);
+      repeat (10) @(wishB_vif.driver_cb);
       phase.drop_objection(this);
     endtask
 
