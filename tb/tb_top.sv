@@ -4,7 +4,8 @@ module tb_top;
 
   import uvm_pkg::*;
   `include "uvm_macros.svh"
-  import uart_hello_pkg::*;
+  import uart_hello_pkg::*;   // agreguen aquí el paquete de su ambiente
+  import uart_wb_smoke_pkg::*;
 
   parameter real CLK_PERIOD_NS = 20.0;
 
