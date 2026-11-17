@@ -94,7 +94,7 @@ Una o más filas por cada característica de la sección 4.
 |V-REG-04|F-REG-02|Debug 1 y Debug 2 reflejan los valores de los registros y no alteran el estado|RAL y scoreboard|cg_reg_rst.cp_debug_read|+UART_REG_ACCESS_COUNT|
 |V-RST-01|F-RST-01|Tras el reset los registros tienen sus valores iniciales y las FIFOs quedan vacías|RAL (uvm_reg_hw_reset_seq)|uvm_reg_hw_reset_seq|ninguno, siempre activo|
 |V-RST-02|F-RST-01|Reset asíncrono a mitad de tráfico: el UART vuelve a un estado limpio|Scoreboard, SVA y RAL|cg_reg_rst.cp_reset_state|+UART_RST_EN, +UART_RST_PCT|
-|V-WB-01|F-WB-01|Estabilidad de señales mientras cyc && stb sin ack, ack acotado y sin X|SVA|cg_traffic.cp_wb_sel × cp_addr|+UART_WB_DELAY_MAX|
+|V-WB-01|F-WB-01|Estabilidad de señales mientras cyc && stb sin ack, ack acotado y sin X|SVA|cg_traffic.cp_wb_sel × cp_addr|+UART_WB_DELAY_MAX, +UART_WB_STB_DELAY_MAX|
 |V-WB-02|F-WB-01|Lectura y escritura correctas con cada valor legal de wb_sel_i|Scoreboard|cg_traffic.cp_wb_sel × cp_addr|+UART_WB_SEL_WEIGHTS|
 
 ```
@@ -121,6 +121,7 @@ El contador de la fifo se conserva y se activa OE
 |tx_payload_size|uart_ser_agent_cfg|1 a 256|98 % en 1 a 32, 2 % en 33 a 256|TX_PAYLOAD_MAX, TX_PAYLOAD_TAIL_PCT|
 |tx_data_byte|uart_ser_agent_cfg|0x00 a 0xFF|Uniforme|(ninguno)|
 |wb_delay|wb_agent_cfg|0 a 1000 ciclos|98 % en 0 a 20, 2 % en la cola|WB_DELAY_MAX, WB_DELAY_TAIL_PCT|
+|wb_stb_delay|wb_agent_cfg|0 a WB_STB_DELAY_MAX ciclos|Uniforme entre 0 y 3|WB_STB_DELAY_MAX|
 |tx_break_pct|uart_ser_agent_cfg|0 a 100|3|TX_BREAK_PCT|
 |rx_payload_size|uart_ser_agent_cfg|1 a 256|98 % en 1 a 32, 2 % en 33 a 256|SER_PAYLOAD_MAX, SER_PAYLOAD_TAIL_PCT|
 |rx_data_byte|uart_ser_agent_cfg|0x00 a 0xFF|Uniforme|(ninguno)|
@@ -251,6 +252,7 @@ drain time justificado
 |+UART_TX_BREAK_PCT|Entero 0 a 100|3|Secuencia de configuración, scoreboard|uart_ser_agent_cfg|% de corridas que activan break en LCR[6]|
 |+UART_WB_DELAY_MAX|Entero ≥ 0 (ciclos)|20|Driver Wishbone|wb_agent_cfg|Tope de la zona rápida del retardo entre transacciones|
 |+UART_WB_DELAY_TAIL_PCT|Entero 0 a 100|2|Driver Wishbone|wb_agent_cfg|% de retardos largos (hasta 1000)|
+|+UART_WB_STB_DELAY_MAX|Entero ≥ 0 (ciclos)|3|Driver Wishbone|wb_agent_cfg|Máximo de ciclos con cyc = 1 y stb = 0 antes de activar stb (espera del maestro, enunciado 5.1)|
 |+UART_WB_SEL_WEIGHTS|4 pesos (un byte activo, bytes 0 a 3)|1,1,1,1|Driver Wishbone, scoreboard|wb_agent_cfg|Pesos de wb_sel_i legal|
 |+UART_SER_PAYLOAD_MAX|Entero ≥ 1|32|Secuencia RX|uart_ser_agent_cfg|Tope de la zona rápida de tramas RX|
 |+UART_SER_PAYLOAD_TAIL_PCT|Entero 0 a 100|2|Secuencia RX|uart_ser_agent_cfg|% de ráfagas RX largas (hasta 256)|
