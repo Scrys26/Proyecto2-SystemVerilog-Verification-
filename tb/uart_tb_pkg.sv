@@ -6,7 +6,6 @@ package uart_tb_pkg;
 
   import uvm_pkg::*;
   `include "uvm_macros.svh"
-  import config_utils::*;
 
   // holgado, el driver solo evita colgarse, la aserción reporta si debemos aumentarlo.
   localparam int unsigned WB_ACK_TIMEOUT_CYCLES = 16;

@@ -18,7 +18,7 @@ class config_wishB extends uvm_object;
 
   // Orden byte de la dirección N[1:0] = 0, 1, 2, 3 (sel = 1000, 0100, 0010, 0001 del rtl
   // uart_wb.v:293-298).
-  uint_q_t     wb_sel_weights    = '{1, 1, 1, 1};
+  int unsigned wb_sel_weights[4] = '{1, 1, 1, 1};
 
   string knob_trace[$];
 
@@ -32,11 +32,10 @@ class config_wishB extends uvm_object;
     wb_delay_max      = read_int("UART_WB_DELAY_MAX",          wb_delay_max);
     wb_delay_tail_pct = read_int("UART_WB_DELAY_TAIL_PCT",     wb_delay_tail_pct);
     wb_stb_delay_max  = read_int("UART_WB_STB_DELAY_MAX",      wb_stb_delay_max);
-    wb_sel_weights    = read_weights("UART_WB_SEL_WEIGHTS",    wb_sel_weights);
+    read_weights4("UART_WB_SEL_WEIGHTS", wb_sel_weights);
   endfunction
 
   function void check_knobs();
-    check(wb_sel_weights.size() == 4,  "UART_WB_SEL_WEIGHTS necesita 4 pesos");
     check(wb_sel_weights.sum() > 0,    "UART_WB_SEL_WEIGHTS no puede ser toda 0");
     check(wb_delay_tail_pct <= 100,    "UART_WB_DELAY_TAIL_PCT pasa de 100");
     check(wb_delay_max <= wb_delay_abs_max, "UART_WB_DELAY_MAX pasa del tope de la cola");
@@ -60,15 +59,17 @@ class config_wishB extends uvm_object;
     return def;
   endfunction
 
-  local function uint_q_t read_weights(string name, uint_q_t def);
+  local function void read_weights4(string name, ref int unsigned w[4]);
     uvm_cmdline_processor clp = uvm_cmdline_processor::get_inst();
     string s;
     if (clp.get_arg_value({"+", name, "="}, s)) begin
-      knob_trace.push_back($sformatf("+%s = %s (plusarg)", name, s));
-      return config_utils::csv_to_ints(s);
+      // Se exigen los 4 pesos: con menos, $sscanf dejaría valores por defecto sin avisar.
+      check($sscanf(s, "%d,%d,%d,%d", w[0], w[1], w[2], w[3]) == 4,
+            {name, " necesita 4 pesos separados por comas"});
+      knob_trace.push_back($sformatf("+%s = %p (plusarg)", name, w));
     end
-    knob_trace.push_back($sformatf("+%s = %p (default)", name, def));
-    return def;
+    else
+      knob_trace.push_back($sformatf("+%s = %p (default)", name, w));
   endfunction
 
   local function void check(bit ok, string msg);
