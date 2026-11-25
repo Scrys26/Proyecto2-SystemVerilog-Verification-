@@ -20,8 +20,9 @@ class uart_wb_smoke_test extends uvm_test;
 
     cfg = config_wishB::type_id::create("cfg");
     cfg.parse_plusargs();
-    cfg.check_knobs();
+    // Se imprime antes de validar para que la traza quede en el log aunque check_knobs() corte.
     cfg.print_knobs();
+    cfg.check_knobs();
     uvm_config_db#(config_wishB)::set(this, "wishB_agt*", "config_wishB", cfg);
 
     wishB_agt = wishB_agent::type_id::create("wishB_agt", this);
@@ -38,19 +39,24 @@ class uart_wb_smoke_test extends uvm_test;
     wishB_item      seen;
 
     phase.raise_objection(this);
+    `uvm_info("SMOKE", "Paso 1: lecturas de LCR, IIR y LSR, escritura y lectura de SCR", 200)
     seq.start(wishB_agt.sqr);
 
-    // Valores de reset leídos del RTL: uart_regs.v:477 (LCR), :412 y :860 (IIR), :666 y :677 (LSR).
+    `uvm_info("SMOKE", "Paso 2: valores leídos contra los valores esperados", 200)
+    // Valores de reset leídos del RTL: uart_regs.v:477 (LCR), :410 y :860 (IIR), :666 y :677 (LSR).
     check_reg("LCR", seq.lcr, 8'h03);
     check_reg("IIR", seq.iir, 8'hC1);
     check_reg("LSR", seq.lsr, 8'h60);
     check_reg("SCR", seq.scr, seq.scr_wdata);
 
+    `uvm_info("SMOKE", "Paso 3: cada transacción del monitor contra la del driver", 200)
     foreach (seq.done[i]) begin
       mon_fifo.get(seen);
       if (!seen.compare(seq.done[i]))
         `uvm_error("SMOKE", $sformatf("Monitor y driver no coinciden en la transacción %0d:\nmonitor:%s\ndriver:%s",
                                       i, seen.sprint(), seq.done[i].sprint()))
+      else
+        `uvm_info("SMOKE", $sformatf("Transacción %0d igual en monitor y driver", i), 100)
     end
     if (mon_fifo.used() != 0)
       `uvm_error("SMOKE", $sformatf("El monitor publicó %0d transacciones de más", mon_fifo.used()))
@@ -62,7 +68,17 @@ class uart_wb_smoke_test extends uvm_test;
     if (got !== exp)
       `uvm_error("SMOKE", $sformatf("%s = 0x%02h, se esperaba 0x%02h", name, got, exp))
     else
-      `uvm_info("SMOKE", $sformatf("%s = 0x%02h correcto", name, got), UVM_LOW)
+      `uvm_info("SMOKE", $sformatf("%s = 0x%02h correcto", name, got), 100)
+  endfunction
+
+  // Verbosidad: 0 veredicto (siempre se ve), 100 cada comprobación, 200 cada paso, 300 detalle de cada acceso.
+  function void report_phase(uvm_phase phase);
+    uvm_report_server srv = uvm_report_server::get_server();
+    int unsigned      n_err = srv.get_severity_count(UVM_ERROR);
+    if (n_err == 0)
+      `uvm_info("SMOKE", "uart_wb_smoke_test PASÓ", 0)
+    else
+      `uvm_info("SMOKE", $sformatf("uart_wb_smoke_test FALLÓ con %0d UVM_ERROR", n_err), 0)
   endfunction
 
 endclass : uart_wb_smoke_test

@@ -1,0 +1,126 @@
+// Mapa de registros del UART 16550 para PeakRDL-uvm; direcciones de byte. En las direcciones 0 y 1,
+// DLAB = LCR[7] elige entre dlab0_rm (DLAB = 0) y dlab1_rm (DLAB = 1).
+// Ref: V-REG-01, V-REG-02, V-REG-03, V-RST-01. Dueño: Eric.
+
+addrmap dlab0_rm {
+  name = "UART 16550, DLAB = 0";
+  default regwidth    = 8;
+  default accesswidth = 8;
+  // Solo el software cambia estos campos: PeakRDL los genera no volátiles y mirror(UVM_CHECK) los compara.
+  // Los campos que cambia el hardware llevan hw = w y quedan volátiles (sin comparar).
+  default hw = r;
+
+  // Dir 0: RBR (lectura) y THR (escritura) comparten dirección.
+  reg {
+    field { sw = r; hw = w; } data[7:0];
+  } RBR @ 0x0;
+
+  reg {
+    field { sw = w; } data[7:0];
+  } THR @ 0x0;
+
+  // Dir 1: IER. El RTL guarda 4 bits; 7:4 se leen en 0.
+  reg {
+    field { sw = rw; } erbfi[0:0] = 0;
+    field { sw = rw; } etbei[1:1] = 0;
+    field { sw = rw; } elsi[2:2]  = 0;
+    field { sw = rw; } edssi[3:3] = 0;
+    field { sw = r;  } reservado[7:4] = 0;
+  } IER @ 0x1;
+
+  // Dir 2: IIR (lectura) y FCR (escritura). IIR[7:4] es la constante 4'b1100 (uart_regs.v:410).
+  reg {
+    field { sw = r; hw = w; } int_pending[0:0] = 1;
+    field { sw = r; hw = w; } int_id[3:1]      = 0;
+    field { sw = r; }         fifo_en[7:4]     = 0xC;
+  } IIR @ 0x2;
+
+  reg {
+    field { sw = w; }              rsvd0[0:0]       = 0;
+    field { sw = w; singlepulse; } rx_fifo_rst[1:1] = 0;
+    field { sw = w; singlepulse; } tx_fifo_rst[2:2] = 0;
+    field { sw = w; }              rsvd1[5:3]       = 0;
+    field { sw = w; }              rx_trigger[7:6]  = 0x3;
+  } FCR @ 0x2;
+
+  // Dir 3: LCR
+  reg {
+    field { sw = rw; } wls[1:0]  = 0x3;
+    field { sw = rw; } stb[2:2]  = 0;
+    field { sw = rw; } pen[3:3]  = 0;
+    field { sw = rw; } eps[4:4]  = 0;
+    field { sw = rw; } sp[5:5]   = 0;
+    field { sw = rw; } bc[6:6]   = 0;
+    field { sw = rw; } dlab[7:7] = 0;
+  } LCR @ 0x3;
+
+  // Dir 4: MCR. Se escribe pero no se lee de vuelta (uart_regs.v:404-416 no lo incluye).
+  reg {
+    field { sw = w; } dtr[0:0]  = 0;
+    field { sw = w; } rts[1:1]  = 0;
+    field { sw = w; } out1[2:2] = 0;
+    field { sw = w; } out2[3:3] = 0;
+    field { sw = w; } loop[4:4] = 0;
+    field { sw = w; } rsvd[7:5] = 0;
+  } MCR @ 0x4;
+
+  // Dir 5: LSR. Lo cambia el hardware; los bits de error se limpian al leer.
+  reg {
+    field { sw = r; hw = w; }       dr[0:0]            = 0;
+    field { sw = r; hw = w; rclr; } oe[1:1]            = 0;
+    field { sw = r; hw = w; rclr; } pe[2:2]            = 0;
+    field { sw = r; hw = w; rclr; } fe[3:3]            = 0;
+    field { sw = r; hw = w; rclr; } bi[4:4]            = 0;
+    field { sw = r; hw = w; }       thre[5:5]          = 1;
+    field { sw = r; hw = w; }       temt[6:6]          = 1;
+    field { sw = r; hw = w; rclr; } error_en_fifo[7:7] = 0;
+  } LSR @ 0x5;
+
+  // Dir 6: MSR. Deltas se limpian al leer; el estado sigue a las entradas de módem, sin reset definido.
+  reg {
+    field { sw = r; hw = w; rclr; } dcts[0:0] = 0;
+    field { sw = r; hw = w; rclr; } ddsr[1:1] = 0;
+    field { sw = r; hw = w; rclr; } teri[2:2] = 0;
+    field { sw = r; hw = w; rclr; } ddcd[3:3] = 0;
+    field { sw = r; hw = w; }       cts[4:4];
+    field { sw = r; hw = w; }       dsr[5:5];
+    field { sw = r; hw = w; }       ri[6:6];
+    field { sw = r; hw = w; }       dcd[7:7];
+  } MSR @ 0x6;
+
+  // Dir 7: SCR, implementado por el RTL aunque la especificación lo removió (AMB-01).
+  reg {
+    field { sw = rw; } scratch[7:0] = 0;
+  } SCR @ 0x7;
+
+  // Dir 8: Debug 1, solo en modo de 32 bits.
+  reg {
+    regwidth    = 32;
+    accesswidth = 32;
+    field { sw = r; hw = w; } data[31:0];
+  } DEBUG1 @ 0x8;
+
+  // Dir 12: Debug 2, solo en modo de 32 bits.
+  reg {
+    regwidth    = 32;
+    accesswidth = 32;
+    field { sw = r; hw = w; } data[23:0];
+    field { sw = r; }         reservado[31:24] = 0;
+  } DEBUG2 @ 0xC;
+};
+
+// Divisor visible con DLAB = 1 en las direcciones 0 y 1.
+addrmap dlab1_rm {
+  name = "UART 16550, DLAB = 1";
+  default regwidth    = 8;
+  default accesswidth = 8;
+  default hw = r;
+
+  reg {
+    field { sw = rw; } dl_lsb[7:0] = 0;
+  } DLL @ 0x0;
+
+  reg {
+    field { sw = rw; } dl_msb[7:0] = 0;
+  } DLM @ 0x1;
+};

@@ -42,6 +42,8 @@ class wishB_smoke_seq extends uvm_sequence #(wishB_item);
 
     rdata = it.dat[8 * lane +: 8];
     done.push_back(it);
+    `uvm_info("SEQ", $sformatf("%s reg=%0d sel=%04b dat=0x%08h delay=%0d stb_delay=%0d",
+                               wr ? "WR" : "RD", reg_n, it.sel, it.dat, it.delay, it.stb_delay), 300)
   endtask
 
 endclass : wishB_smoke_seq
