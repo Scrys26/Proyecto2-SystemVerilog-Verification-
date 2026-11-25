@@ -21,14 +21,14 @@ Llenen todas las tablas. Las filas en gris son ejemplos que muestran el nivel de
 |---|---|
 |Versión del RTL verificada (commit o revisión SVN)|N/A|
 |Configuración de compilación (bus de 32 bits; variante de 8 bits sí/no)|bus de 32 bits|
-|Frecuencia de reloj en simulación y rango de DL soportado|Reloj: **por decidir** (un valor fijo de simulación, que ya está en su lista de “fijo”). DL de 16 bits: **0 a 65535**. DL = 0 es legal (no transmite ni recibe),|
+|Frecuencia de reloj en simulación y rango de DL soportado|Reloj: 50 MHz (periodo de 20 ns, CLK_PERIOD_NS en tb_top); con DL = 1 la tasa es 3.125 Mbaud. DL de 16 bits: **0 a 65535**. DL = 0 es legal (no transmite ni recibe),|
 |Funcionalidad fuera de alcance y justificación|Aspectos eléctricos y físicos: el RTL simulado es digital e ideal.|
 
 # 2. Documentos de referencia
 
 |Documento|Versión|Enlace o ubicación|
 |---|---|---|
-|UART IP Core Specification|Rev. 0.6|doc/UART_spec.pdf|
+|UART IP Core Specification|Rev. 0.6|docs/UART_spec.pdf|
 
 # 3. Interpretación de la especificación
 
@@ -37,9 +37,10 @@ Una fila por cada ambigüedad o discrepancia entre la especificación y el RTL (
 |ID|Tema|La especificación dice|El RTL hace|Comportamiento que modelamos|Justificación|
 |---|---|---|---|---|---|
 |AMB-01|Registro scratch (dir. 7)|Fue removido|uart_regs.v lo implementa en la dirección 7: lectura y escritura, reset en 0|Registro RW de 8 bits, reset 8'h00. Se anota como funcionalidad del RTL no exigida por la especificación|La especificación está desactualizada. Se documenta la diferencia y se verifica su funcionamiento|
-|AMB-02|wb_sel_i en modo de 32 bits|Solo indica que selecciona el byte; no define varios bits activos|uart_wb.v usa selección one-hot. En escritura, una combinación no reconocida usa los bits [7:0] y la dirección 0. En lectura devuelve 0, salvo 1111, que se usa para depuración|One-hot para accesos de 8 bits y 1111 para lecturas de depuración de 32 bits. Las demás combinaciones se clasifican como comportamiento no especificado|No se asume un resultado funcional para lo que la especificación no define. Se documenta lo que hace el RTL|
+|AMB-02|wb_sel_i en modo de 32 bits|Solo indica que selecciona el byte; no define varios bits activos|uart_wb.v usa selección one-hot. En escritura, una combinación no reconocida usa los bits [7:0] y la dirección {adr[4:2], 00} (uart_wb.v:281 y 298). En lectura devuelve 0, salvo 1111, que se usa para depuración|One-hot para accesos de 8 bits y 1111 para lecturas de depuración de 32 bits. Las demás combinaciones se clasifican como comportamiento no especificado|No se asume un resultado funcional para lo que la especificación no define. Se documenta lo que hace el RTL|
 |AMB-03|Bits de parada 1.5 y 2|1.5 con 5 bits y 2 en los demás. El receptor revisa solo el primero|El transmisor tiene lógica para las tres duraciones y el receptor comprueba un solo bit de parada. El historial de 2001 dice que más de uno no estaba implementado|Se prueban las tres duraciones en TX y su duración se mide. En RX se valida solo el primer bit de parada|La nota de 2001 corresponde a una versión anterior. La duración exacta se confirma por simulación|
-|AMB-04|Polaridad de RTS y DTR|Las salidas de módem son activas en bajo|En uart_reg.sv, RTS y DTR se asignan directamente desde los bits correspondientes de MCR.|Se comprueban los niveles físicos que genera el RTL y se documenta su diferencia respecto a la especificación.|La diferencia puede afectar la comprobación de las salidas del módem. Se confirmará durante la simulación.|
+|AMB-04|Polaridad de RTS y DTR|Las salidas de módem son activas en bajo|En uart_regs.v, RTS y DTR se asignan directamente desde los bits correspondientes de MCR.|Se comprueban los niveles físicos que genera el RTL y se documenta su diferencia respecto a la especificación.|La diferencia puede afectar la comprobación de las salidas del módem. Se confirmará durante la simulación.|
+|AMB-05|Transferencias Wishbone seguidas con stb sostenido|Interfaz Wishbone Rev. B con ciclos simples; no dice si el maestro puede sostener stb entre una transferencia y la siguiente|uart_wb.v rearma wre solo cuando la FSM está en reposo y ve stb = 0 (línea 208), y re_o y we_o dependen de wre (líneas 224-225). Con stb sostenido, el DUT da ack pero no ejecuta la lectura ni la escritura, y wb_dat_o conserva la palabra anterior (línea 262)|Por defecto el agente deja stb en 0 al menos un ciclo entre transferencias (WB_STB_DELAY_MIN = 1). El caso con stb sostenido se ejercita con WB_STB_DELAY_MIN = 0 (CE-13) y se reporta como error del DUT|Wishbone permite sostener stb en ciclos en bloque; un esclavo que da ack sin ejecutar el acceso pierde datos sin avisar. Reproducido con uart_wb_smoke_test, semilla 3, +UART_WB_DELAY_MAX=0 +UART_WB_STB_DELAY_MIN=0 +UART_WB_STB_DELAY_MAX=0: IIR = 0x00, LSR = 0x00 y SCR = 0x03 en vez de 0xC1, 0x60 y 0xA5|
 
 # 4. Lista de características
 
@@ -94,7 +95,7 @@ Una o más filas por cada característica de la sección 4.
 |V-REG-04|F-REG-02|Debug 1 y Debug 2 reflejan los valores de los registros y no alteran el estado|RAL y scoreboard|cg_reg_rst.cp_debug_read|+UART_REG_ACCESS_COUNT|
 |V-RST-01|F-RST-01|Tras el reset los registros tienen sus valores iniciales y las FIFOs quedan vacías|RAL (uvm_reg_hw_reset_seq)|uvm_reg_hw_reset_seq|ninguno, siempre activo|
 |V-RST-02|F-RST-01|Reset asíncrono a mitad de tráfico: el UART vuelve a un estado limpio|Scoreboard, SVA y RAL|cg_reg_rst.cp_reset_state|+UART_RST_EN, +UART_RST_PCT|
-|V-WB-01|F-WB-01|Estabilidad de señales mientras cyc && stb sin ack, ack acotado y sin X|SVA|cg_traffic.cp_wb_sel × cp_addr|+UART_WB_DELAY_MAX, +UART_WB_STB_DELAY_MAX|
+|V-WB-01|F-WB-01|Estabilidad de señales mientras cyc && stb sin ack, ack acotado y sin X|SVA|cg_traffic.cp_wb_sel × cp_addr|+UART_WB_DELAY_MAX, +UART_WB_STB_DELAY_MIN, +UART_WB_STB_DELAY_MAX|
 |V-WB-02|F-WB-01|Lectura y escritura correctas con cada valor legal de wb_sel_i|Scoreboard|cg_traffic.cp_wb_sel × cp_addr|+UART_WB_SEL_WEIGHTS|
 
 ```
@@ -121,7 +122,7 @@ El contador de la fifo se conserva y se activa OE
 |tx_payload_size|uart_ser_agent_cfg|1 a 256|98 % en 1 a 32, 2 % en 33 a 256|TX_PAYLOAD_MAX, TX_PAYLOAD_TAIL_PCT|
 |tx_data_byte|uart_ser_agent_cfg|0x00 a 0xFF|Uniforme|(ninguno)|
 |wb_delay|wb_agent_cfg|0 a 1000 ciclos|98 % en 0 a 20, 2 % en la cola|WB_DELAY_MAX, WB_DELAY_TAIL_PCT|
-|wb_stb_delay|wb_agent_cfg|0 a WB_STB_DELAY_MAX ciclos|Uniforme entre 0 y 3|WB_STB_DELAY_MAX|
+|wb_stb_delay|wb_agent_cfg|WB_STB_DELAY_MIN a WB_STB_DELAY_MAX ciclos|Uniforme entre 1 y 3|WB_STB_DELAY_MIN, WB_STB_DELAY_MAX|
 |tx_break_pct|uart_ser_agent_cfg|0 a 100|3|TX_BREAK_PCT|
 |rx_payload_size|uart_ser_agent_cfg|1 a 256|98 % en 1 a 32, 2 % en 33 a 256|SER_PAYLOAD_MAX, SER_PAYLOAD_TAIL_PCT|
 |rx_data_byte|uart_ser_agent_cfg|0x00 a 0xFF|Uniforme|(ninguno)|
@@ -154,6 +155,7 @@ El contador de la fifo se conserva y se activa OE
 |cg_modem|loopback_en tiene 20 % y los 4 bits de MCR son independientes|MCR_LOOPBACK_PCT|
 |cg_reg_rst: addr × dlab|La reconfiguración elige cualquier dirección con DLAB = 0 y 1|REG_ACCESS_COUNT, REG_DLAB_PCT|
 |cg_reg_rst: reset a mitad de tráfico|**Excepción:** apagado por defecto (E10). Justificación: un reset a mitad de tráfico obliga a vaciar el scoreboard y alarga las corridas. El reset inicial siempre ocurre|RST_EN, RST_PCT|
+|Wishbone: stb_delay = 0 (transferencias seguidas con stb sostenido)|**Excepción:** WB_STB_DELAY_MIN = 1 por defecto. Con stb sostenido, uart_wb.v no rearma wre (líneas 208 y 224-225) y el DUT da ack sin ejecutar la lectura o escritura. Es un error del DUT documentado; dejarlo en el caso general haría fallar cualquier semilla que lo genere. Se ejercita aparte|WB_STB_DELAY_MIN=0|
 
 ## 6.2.5 Caso general
 
@@ -252,6 +254,7 @@ drain time justificado
 |+UART_TX_BREAK_PCT|Entero 0 a 100|3|Secuencia de configuración, scoreboard|uart_ser_agent_cfg|% de corridas que activan break en LCR[6]|
 |+UART_WB_DELAY_MAX|Entero ≥ 0 (ciclos)|20|Driver Wishbone|wb_agent_cfg|Tope de la zona rápida del retardo entre transacciones|
 |+UART_WB_DELAY_TAIL_PCT|Entero 0 a 100|2|Driver Wishbone|wb_agent_cfg|% de retardos largos (hasta 1000)|
+|+UART_WB_STB_DELAY_MIN|Entero ≥ 0 (ciclos), ≤ WB_STB_DELAY_MAX|1|Driver Wishbone|wb_agent_cfg|Mínimo de ciclos con cyc = 1 y stb = 0 antes de activar stb. Con 0 se permiten transferencias seguidas con stb sostenido, donde el DUT da ack sin ejecutar el acceso|
 |+UART_WB_STB_DELAY_MAX|Entero ≥ 0 (ciclos)|3|Driver Wishbone|wb_agent_cfg|Máximo de ciclos con cyc = 1 y stb = 0 antes de activar stb (espera del maestro, enunciado 5.1)|
 |+UART_WB_SEL_WEIGHTS|4 pesos (un byte activo, bytes 0 a 3)|1,1,1,1|Driver Wishbone, scoreboard|wb_agent_cfg|Pesos de wb_sel_i legal|
 |+UART_SER_PAYLOAD_MAX|Entero ≥ 1|32|Secuencia RX|uart_ser_agent_cfg|Tope de la zona rápida de tramas RX|
@@ -296,6 +299,7 @@ drain time justificado
 |CE-10|Break de transmisión frecuente|tx_break_100.args|+UART_TX_BREAK_PCT=100|cg_line_cfg.cp_tx_break|10|
 |CE-11|DL = 1 (el más rápido)|dl_fastest.args|+UART_DL_MAX_FAST=1 +UART_DL_ZERO_PCT=0|cg_div.cp_dl (zona rápida)|10|
 |CE-12|Explorar la cola de DL|dl_tail.args|+UART_DL_TAIL_PCT=100|cg_div.cp_dl (cola)|10|
+|CE-13|Transferencias Wishbone seguidas con stb sostenido (error del DUT, AMB-05)|wb_stb_held.args|+UART_WB_DELAY_MAX=0 +UART_WB_DELAY_TAIL_PCT=0 +UART_WB_STB_DELAY_MIN=0 +UART_WB_STB_DELAY_MAX=0|A-WB-01 y A-WB-02 (cover); scoreboard: lecturas con dato anterior y escrituras perdidas|10|
 
 # 9. Arquitectura del ambiente
 

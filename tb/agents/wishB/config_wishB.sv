@@ -14,6 +14,9 @@ class config_wishB extends uvm_object;
 
   // Tope de la cola; no es plusarg porque CE-08 solo necesita cambiar la probabilidad, no el tope.
   int unsigned wb_delay_abs_max  = 1000;
+  // Mínimo 1: con stb sostenido entre transferencias el DUT da ack sin ejecutar el acceso
+  // (uart_wb.v:208, 224-225). Con +UART_WB_STB_DELAY_MIN=0 se reproduce ese caso.
+  int unsigned wb_stb_delay_min  = 1;
   int unsigned wb_stb_delay_max  = 3;
 
   // Orden byte de la dirección N[1:0] = 0, 1, 2, 3 (sel = 1000, 0100, 0010, 0001 del rtl
@@ -31,6 +34,7 @@ class config_wishB extends uvm_object;
     knob_trace.delete();
     wb_delay_max      = read_int("UART_WB_DELAY_MAX",          wb_delay_max);
     wb_delay_tail_pct = read_int("UART_WB_DELAY_TAIL_PCT",     wb_delay_tail_pct);
+    wb_stb_delay_min  = read_int("UART_WB_STB_DELAY_MIN",      wb_stb_delay_min);
     wb_stb_delay_max  = read_int("UART_WB_STB_DELAY_MAX",      wb_stb_delay_max);
     read_weights4("UART_WB_SEL_WEIGHTS", wb_sel_weights);
   endfunction
@@ -38,6 +42,7 @@ class config_wishB extends uvm_object;
   function void check_knobs();
     check(wb_sel_weights.sum() > 0,    "UART_WB_SEL_WEIGHTS no puede ser toda 0");
     check(wb_delay_tail_pct <= 100,    "UART_WB_DELAY_TAIL_PCT pasa de 100");
+    check(wb_stb_delay_min <= wb_stb_delay_max, "UART_WB_STB_DELAY_MIN es mayor que UART_WB_STB_DELAY_MAX");
     check(wb_delay_max <= wb_delay_abs_max, "UART_WB_DELAY_MAX pasa del tope de la cola");
     check(wb_delay_tail_pct == 0 || wb_delay_max < wb_delay_abs_max,
           "la cola de UART_WB_DELAY está vacía: el máximo rápido llega al tope");
