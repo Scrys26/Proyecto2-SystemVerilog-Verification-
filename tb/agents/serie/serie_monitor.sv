@@ -8,8 +8,8 @@ class serie_monitor extends uvm_monitor;
   uvm_analysis_port #(serie_item) ap;
 
   virtual serie_if               vif;
-  uart_ral_pkg::uart_regs        regs;
-  uart_dl_ral_pkg::uart_dl_regs  dl_regs;
+  dlab0_rm_pkg::dlab0_rm  regs;
+  dlab1_rm_pkg::dlab1_rm  dl_regs;
 
   // Cuál de los dos cables mira este monitor. Lo define el agente al crearlo.
   serie_dir_e dir = SER_DIR_RX;
@@ -24,10 +24,10 @@ class serie_monitor extends uvm_monitor;
     super.build_phase(phase);
     if (!uvm_config_db#(virtual serie_if)::get(this, "", "vif", vif))
       `uvm_fatal("CFG", "serie_monitor no encontró la interfaz serie_if en uvm_config_db")
-    if (!uvm_config_db#(uart_ral_pkg::uart_regs)::get(this, "", "uart_regs", regs))
-      `uvm_fatal("CFG", "serie_monitor no encontró el modelo de registros uart_regs")
-    if (!uvm_config_db#(uart_dl_ral_pkg::uart_dl_regs)::get(this, "", "uart_dl_regs", dl_regs))
-      `uvm_fatal("CFG", "serie_monitor no encontró el modelo de registros uart_dl_regs")
+    if (!uvm_config_db#(dlab0_rm_pkg::dlab0_rm)::get(this, "", "dlab0_rm", regs))
+      `uvm_fatal("CFG", "serie_monitor no encontró el modelo de registros dlab0_rm")
+    if (!uvm_config_db#(dlab1_rm_pkg::dlab1_rm)::get(this, "", "dlab1_rm", dl_regs))
+      `uvm_fatal("CFG", "serie_monitor no encontró el modelo de registros dlab1_rm")
   endfunction
 
   // Espera que empiece una trama, lee bit por bit a la mitad de cada uno y publica lo que vio

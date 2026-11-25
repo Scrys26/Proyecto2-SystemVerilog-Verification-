@@ -32,9 +32,9 @@ class serie_rx_seq extends uvm_sequence #(serie_item);
         `uvm_fatal("CFG", "serie_rx_seq no pudo sortear el carácter")
 
       // El formato se lee justo antes de mandar, por si alguien reconfiguró el UART mientras tanto
-      lcr      = p_sequencer.regmodel.lcr.get_mirrored_value();
-      dl[15:8] = p_sequencer.regmodel.dlm.get_mirrored_value();
-      dl[7:0]  = p_sequencer.regmodel.dll.get_mirrored_value();
+      lcr      = p_sequencer.regs.LCR.get_mirrored_value();
+      dl[15:8] = p_sequencer.dl_regs.DLM.get_mirrored_value();
+      dl[7:0]  = p_sequencer.dl_regs.DLL.get_mirrored_value();
       req.build_frame(lcr, dl);
       finish_item(req);
     end
