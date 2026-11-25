@@ -40,7 +40,7 @@ class uart_wb_smoke_test extends uvm_test;
     phase.raise_objection(this);
     seq.start(wishB_agt.sqr);
 
-    // Valores de reset leídos del RTL: uart_regs.v:477 (LCR), :412 y :860 (IIR), :666 y :677 (LSR).
+    // Valores de reset leídos del RTL: uart_regs.v:477 (LCR), :410 y :860 (IIR), :666 y :677 (LSR).
     check_reg("LCR", seq.lcr, 8'h03);
     check_reg("IIR", seq.iir, 8'hC1);
     check_reg("LSR", seq.lsr, 8'h60);

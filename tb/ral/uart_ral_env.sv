@@ -1,20 +1,18 @@
-// RAL generado con PeakRDL (uart_ral_pkg, uart_dl_ral_pkg): adaptador, predictor y entorno.
+// RAL generado con PeakRDL (dlab0_rm_pkg, dlab1_rm_pkg): adaptador, predictor y entorno.
 // Ref: V-REG-01, V-REG-02, V-REG-03, V-RST-01. Dueño: Eric.
 //
 // Solape de direcciones: con DLAB = LCR[7] = 1, las direcciones 0 y 1 son DLL y DLM
-// (bloque uart_dl_regs); con DLAB = 0 son RBR/THR e IER (bloque uart_regs).
-// El resto de direcciones es igual con cualquier DLAB y vive en uart_regs.
+// (bloque dlab1_rm); con DLAB = 0 son RBR/THR e IER (bloque dlab0_rm)
+// El resto de direcciones es igual con cualquier DLAB y vive en dlab0_rm
 `ifndef UART_RAL_ENV_SV
 `define UART_RAL_ENV_SV
 
-// ---------------------------------------------------------------------------
-// Adaptador: uvm_reg_bus_op <-> wishB_item
-// En 32 bits el RTL es big endian (LITLE_ENDIAN sin definir, uart_wb.v:293-298):
-// dirección N[1:0] = 0, 1, 2, 3 -> sel = 1000, 0100, 0010, 0001.
-// Los registros de 32 bits (Debug 1 y 2) usan sel = 1111.
-// ---------------------------------------------------------------------------
+
 class uart_ral_adapter extends uvm_reg_adapter;
   `uvm_object_utils(uart_ral_adapter)
+
+  // Lo asigna uart_ral_env::connect_bus() desde el secuenciador Wishbone.
+  config_wishB cfg;
 
   function new(string name = "uart_ral_adapter");
     super.new(name);
@@ -25,10 +23,19 @@ class uart_ral_adapter extends uvm_reg_adapter;
   virtual function uvm_sequence_item reg2bus(const ref uvm_reg_bus_op rw);
     wishB_item it = wishB_item::type_id::create("it");
     int k = 3 - rw.addr[1:0];
-    it.we        = (rw.kind == UVM_WRITE);
-    it.adr       = rw.addr;
-    it.delay     = 0;
-    it.stb_delay = 0;
+
+    // Mismos knobs que el resto del tráfico Wishbone; stb_delay >= WB_STB_DELAY_MIN evita AMB-05.
+    if (cfg == null)
+      `uvm_fatal("ADAPT", "uart_ral_adapter sin config_wishB: falta llamar a connect_bus()")
+    if (!it.randomize() with {
+          delay dist { [0 : cfg.wb_delay_max]                        :/ (100 - cfg.wb_delay_tail_pct),
+                       [cfg.wb_delay_max + 1 : cfg.wb_delay_abs_max] :/ cfg.wb_delay_tail_pct };
+          stb_delay inside {[cfg.wb_stb_delay_min : cfg.wb_stb_delay_max]};
+        })
+      `uvm_fatal("ADAPT", "No se pudieron aleatorizar los retardos del wishB_item")
+
+    it.we  = (rw.kind == UVM_WRITE);
+    it.adr = rw.addr;
     if (`UART_DATA_WIDTH == 8) begin
       it.sel = 4'b0001;
       it.dat = rw.data;
@@ -68,8 +75,8 @@ endclass : uart_ral_adapter
 class uart_ral_predictor extends uvm_reg_predictor #(wishB_item);
   `uvm_component_utils(uart_ral_predictor)
 
-  uart_ral_pkg::uart_regs       regs;
-  uart_dl_ral_pkg::uart_dl_regs dl_regs;
+  dlab0_rm_pkg::dlab0_rm regs;
+  dlab1_rm_pkg::dlab1_rm dl_regs;
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
@@ -92,7 +99,6 @@ class uart_ral_predictor extends uvm_reg_predictor #(wishB_item);
       rg = map.get_reg_by_offset(rw.addr, 1);
       if (rg != null)
         void'(rg.predict(rw.data, -1, UVM_PREDICT_DIRECT, UVM_FRONTDOOR, map));
-      reg_ap.write(tr);
       return;
     end
 
@@ -107,10 +113,10 @@ endclass : uart_ral_predictor
 class uart_ral_env extends uvm_env;
   `uvm_component_utils(uart_ral_env)
 
-  uart_ral_pkg::uart_regs       regs;     // DLAB = 0 y registros comunes
-  uart_dl_ral_pkg::uart_dl_regs dl_regs;  // DLAB = 1: DLL y DLM
-  uart_ral_adapter              adapter;
-  uart_ral_predictor            predictor;
+  dlab0_rm_pkg::dlab0_rm regs;     // DLAB = 0 y registros comunes
+  dlab1_rm_pkg::dlab1_rm dl_regs;  // DLAB = 1: DLL y DLM
+  uart_ral_adapter       adapter;
+  uart_ral_predictor     predictor;
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
@@ -120,28 +126,53 @@ class uart_ral_env extends uvm_env;
     super.build_phase(phase);
 
     // La prueba puede pasar los bloques ya creados; si no, se crean aquí.
-    if (!uvm_config_db#(uart_ral_pkg::uart_regs)::get(this, "", "uart_regs", regs)) begin
+    if (!uvm_config_db#(dlab0_rm_pkg::dlab0_rm)::get(this, "", "dlab0_rm", regs)) begin
       regs = new("regs"); // PeakRDL no registra las clases en la fábrica
       regs.build();
+      add_backdoor_regs();
       regs.lock_model();
     end
-    if (!uvm_config_db#(uart_dl_ral_pkg::uart_dl_regs)::get(this, "", "uart_dl_regs", dl_regs)) begin
+    if (!uvm_config_db#(dlab1_rm_pkg::dlab1_rm)::get(this, "", "dlab1_rm", dl_regs)) begin
       dl_regs = new("dl_regs");
       dl_regs.build();
+      add_backdoor_dl();
       dl_regs.lock_model();
     end
 
     // Para secuencias, scoreboard y monitores que leen el espejo (LCR, DL, IER).
-    uvm_config_db#(uart_ral_pkg::uart_regs)::set(null, "*", "uart_regs", regs);
-    uvm_config_db#(uart_dl_ral_pkg::uart_dl_regs)::set(null, "*", "uart_dl_regs", dl_regs);
+    uvm_config_db#(dlab0_rm_pkg::dlab0_rm)::set(null, "*", "dlab0_rm", regs);
+    uvm_config_db#(dlab1_rm_pkg::dlab1_rm)::set(null, "*", "dlab1_rm", dl_regs);
 
     adapter   = uart_ral_adapter::type_id::create("adapter");
     predictor = uart_ral_predictor::type_id::create("predictor", this);
   endfunction
 
+  // Puerta trasera: PeakRDL no genera las rutas. Van antes de lock_model(), que congela el modelo.
+  // Ruta completa = raíz del bloque + nombre del slice: tb_top.dut.regs.lcr (uart_top.v:268: instancia regs).
+  // add_hdl_path_slice(señal, bit del registro donde empieza, ancho).
+  local function void add_backdoor_regs();
+    regs.add_hdl_path("tb_top.dut.regs");
+    regs.IER.add_hdl_path_slice("ier",     0, 4);  // reg [3:0] ier (uart_regs.v:303); bits 7:4 leen 0
+    regs.IIR.add_hdl_path_slice("iir",     0, 4);  // bits 7:4 son la constante 4'b1100 (uart_regs.v:410)
+    regs.FCR.add_hdl_path_slice("fcr",     6, 2);  // el RTL solo guarda rx_trigger (uart_regs.v:305)
+    regs.LCR.add_hdl_path_slice("lcr",     0, 8);
+    regs.MCR.add_hdl_path_slice("mcr",     0, 5);
+    regs.LSR.add_hdl_path_slice("lsr",     0, 8);  // wire (uart_regs.v:339): se lee, no se escribe
+    regs.MSR.add_hdl_path_slice("msr",     0, 8);
+    regs.SCR.add_hdl_path_slice("scratch", 0, 8);
+  endfunction
+
+  // DLL y DLM son las dos mitades de un solo vector reg [15:0] dl (uart_regs.v:309).
+  local function void add_backdoor_dl();
+    dl_regs.add_hdl_path("tb_top.dut.regs");
+    dl_regs.DLL.add_hdl_path_slice("dl[7:0]",  0, 8);
+    dl_regs.DLM.add_hdl_path_slice("dl[15:8]", 0, 8);
+  endfunction
+
   // Predicción explícita: el espejo solo cambia con lo que ve el monitor.
   function void connect_bus(wishB_sequencer sqr, uvm_analysis_port #(wishB_item) ap);
     if (sqr != null) begin
+      adapter.cfg = sqr.cfg;
       regs.default_map.set_sequencer(sqr, adapter);
       dl_regs.default_map.set_sequencer(sqr, adapter);
     end
@@ -161,12 +192,14 @@ class uart_ral_env extends uvm_env;
     dl_regs.reset();
   endfunction
 
-  // Escribe el divisor sin tocar THR/IER: sube DLAB, escribe DLL y DLM y restaura LCR.
+  // Escribe el divisor sin tocar THR/IER: sube DLAB, escribe DLM y DLL y restaura LCR.
+  // DLM primero porque escribir DLL arranca el contador del divisor (uart_regs.v:544-545).
+  // La secuencia que lo llama hace lock() del secuenciador para que nadie se intercale.
   task write_dl(input bit [15:0] dl, output uvm_status_e status, input uvm_sequence_base parent = null);
     uvm_reg_data_t lcr = regs.LCR.get_mirrored_value();
     regs.LCR.write(status, lcr | 8'h80, .parent(parent));
-    dl_regs.DLL.write(status, dl[7:0],  .parent(parent));
     dl_regs.DLM.write(status, dl[15:8], .parent(parent));
+    dl_regs.DLL.write(status, dl[7:0],  .parent(parent));
     regs.LCR.write(status, lcr, .parent(parent));
   endtask
 endclass : uart_ral_env

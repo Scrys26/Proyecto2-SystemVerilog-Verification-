@@ -27,8 +27,8 @@ sva/uart_sva.sv
 sva/uart_sva_bind.sv
 
 // ---- Ambiente UVM: después del RTL para que las macros de uart_defines.v ya existan ----
-tb/ral/uart_ral_pkg.sv
-tb/ral/uart_dl_ral_pkg.sv
+tb/ral/dlab0_rm_pkg.sv
+tb/ral/dlab1_rm_pkg.sv
 tb/uart_tb_pkg.sv
 
 // ---- Prueba de humo (reemplazar al agregar el ambiente UVM) ----

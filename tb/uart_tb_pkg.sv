@@ -16,7 +16,6 @@ package uart_tb_pkg;
   `include "wishB_driver.sv"
   `include "wishB_monitor.sv"
   `include "wishB_agent.sv"
-  `include "uart_ral.sv"
   `include "uart_ral_env.sv"
 
 endpackage : uart_tb_pkg
