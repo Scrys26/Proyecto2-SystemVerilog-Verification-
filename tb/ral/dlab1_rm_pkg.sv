@@ -6,6 +6,7 @@ package dlab1_rm_pkg;
     
     // reg - dlab1_rm::DLL
     class dlab1_rm__DLL extends uvm_reg;
+        `uvm_object_utils(dlab1_rm__DLL)
         rand uvm_reg_field dl_lsb;
 
         function new(string name = "dlab1_rm__DLL");
@@ -13,13 +14,14 @@ package dlab1_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.dl_lsb = new("dl_lsb");
+            this.dl_lsb = uvm_reg_field::type_id::create("dl_lsb");
             this.dl_lsb.configure(this, 8, 0, "RW", 0, 'h0, 1, 1, 0);
         endfunction : build
     endclass : dlab1_rm__DLL
 
     // reg - dlab1_rm::DLM
     class dlab1_rm__DLM extends uvm_reg;
+        `uvm_object_utils(dlab1_rm__DLM)
         rand uvm_reg_field dl_msb;
 
         function new(string name = "dlab1_rm__DLM");
@@ -27,13 +29,14 @@ package dlab1_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.dl_msb = new("dl_msb");
+            this.dl_msb = uvm_reg_field::type_id::create("dl_msb");
             this.dl_msb.configure(this, 8, 0, "RW", 0, 'h0, 1, 1, 0);
         endfunction : build
     endclass : dlab1_rm__DLM
 
     // addrmap - dlab1_rm
     class dlab1_rm extends uvm_reg_block;
+        `uvm_object_utils(dlab1_rm)
         rand dlab1_rm__DLL DLL;
         rand dlab1_rm__DLM DLM;
 
@@ -43,12 +46,12 @@ package dlab1_rm_pkg;
 
         virtual function void build();
             this.default_map = create_map("reg_map", 0, 1, UVM_NO_ENDIAN);
-            this.DLL = new("DLL");
+            this.DLL = dlab1_rm__DLL::type_id::create("DLL");
             this.DLL.configure(this);
 
             this.DLL.build();
             this.default_map.add_reg(this.DLL, 'h0);
-            this.DLM = new("DLM");
+            this.DLM = dlab1_rm__DLM::type_id::create("DLM");
             this.DLM.configure(this);
 
             this.DLM.build();

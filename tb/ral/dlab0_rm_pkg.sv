@@ -6,6 +6,7 @@ package dlab0_rm_pkg;
     
     // reg - dlab0_rm::RBR
     class dlab0_rm__RBR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__RBR)
         rand uvm_reg_field data;
 
         function new(string name = "dlab0_rm__RBR");
@@ -13,13 +14,14 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.data = new("data");
+            this.data = uvm_reg_field::type_id::create("data");
             this.data.configure(this, 8, 0, "RO", 1, 'h0, 0, 1, 0);
         endfunction : build
     endclass : dlab0_rm__RBR
 
     // reg - dlab0_rm::THR
     class dlab0_rm__THR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__THR)
         rand uvm_reg_field data;
 
         function new(string name = "dlab0_rm__THR");
@@ -27,13 +29,14 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.data = new("data");
+            this.data = uvm_reg_field::type_id::create("data");
             this.data.configure(this, 8, 0, "WO", 0, 'h0, 0, 1, 0);
         endfunction : build
     endclass : dlab0_rm__THR
 
     // reg - dlab0_rm::IER
     class dlab0_rm__IER extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__IER)
         rand uvm_reg_field erbfi;
         rand uvm_reg_field etbei;
         rand uvm_reg_field elsi;
@@ -45,21 +48,22 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.erbfi = new("erbfi");
+            this.erbfi = uvm_reg_field::type_id::create("erbfi");
             this.erbfi.configure(this, 1, 0, "RW", 0, 'h0, 1, 1, 0);
-            this.etbei = new("etbei");
+            this.etbei = uvm_reg_field::type_id::create("etbei");
             this.etbei.configure(this, 1, 1, "RW", 0, 'h0, 1, 1, 0);
-            this.elsi = new("elsi");
+            this.elsi = uvm_reg_field::type_id::create("elsi");
             this.elsi.configure(this, 1, 2, "RW", 0, 'h0, 1, 1, 0);
-            this.edssi = new("edssi");
+            this.edssi = uvm_reg_field::type_id::create("edssi");
             this.edssi.configure(this, 1, 3, "RW", 0, 'h0, 1, 1, 0);
-            this.reservado = new("reservado");
+            this.reservado = uvm_reg_field::type_id::create("reservado");
             this.reservado.configure(this, 4, 4, "RO", 0, 'h0, 1, 1, 0);
         endfunction : build
     endclass : dlab0_rm__IER
 
     // reg - dlab0_rm::IIR
     class dlab0_rm__IIR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__IIR)
         rand uvm_reg_field int_pending;
         rand uvm_reg_field int_id;
         rand uvm_reg_field fifo_en;
@@ -69,17 +73,18 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.int_pending = new("int_pending");
+            this.int_pending = uvm_reg_field::type_id::create("int_pending");
             this.int_pending.configure(this, 1, 0, "RO", 1, 'h1, 1, 1, 0);
-            this.int_id = new("int_id");
+            this.int_id = uvm_reg_field::type_id::create("int_id");
             this.int_id.configure(this, 3, 1, "RO", 1, 'h0, 1, 1, 0);
-            this.fifo_en = new("fifo_en");
+            this.fifo_en = uvm_reg_field::type_id::create("fifo_en");
             this.fifo_en.configure(this, 4, 4, "RO", 0, 'hc, 1, 1, 0);
         endfunction : build
     endclass : dlab0_rm__IIR
 
     // reg - dlab0_rm::FCR
     class dlab0_rm__FCR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__FCR)
         rand uvm_reg_field rsvd0;
         rand uvm_reg_field rx_fifo_rst;
         rand uvm_reg_field tx_fifo_rst;
@@ -91,21 +96,22 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.rsvd0 = new("rsvd0");
+            this.rsvd0 = uvm_reg_field::type_id::create("rsvd0");
             this.rsvd0.configure(this, 1, 0, "WO", 0, 'h0, 1, 1, 0);
-            this.rx_fifo_rst = new("rx_fifo_rst");
+            this.rx_fifo_rst = uvm_reg_field::type_id::create("rx_fifo_rst");
             this.rx_fifo_rst.configure(this, 1, 1, "WO", 1, 'h0, 1, 1, 0);
-            this.tx_fifo_rst = new("tx_fifo_rst");
+            this.tx_fifo_rst = uvm_reg_field::type_id::create("tx_fifo_rst");
             this.tx_fifo_rst.configure(this, 1, 2, "WO", 1, 'h0, 1, 1, 0);
-            this.rsvd1 = new("rsvd1");
+            this.rsvd1 = uvm_reg_field::type_id::create("rsvd1");
             this.rsvd1.configure(this, 3, 3, "WO", 0, 'h0, 1, 1, 0);
-            this.rx_trigger = new("rx_trigger");
+            this.rx_trigger = uvm_reg_field::type_id::create("rx_trigger");
             this.rx_trigger.configure(this, 2, 6, "WO", 0, 'h3, 1, 1, 0);
         endfunction : build
     endclass : dlab0_rm__FCR
 
     // reg - dlab0_rm::LCR
     class dlab0_rm__LCR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__LCR)
         rand uvm_reg_field wls;
         rand uvm_reg_field stb;
         rand uvm_reg_field pen;
@@ -119,25 +125,26 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.wls = new("wls");
+            this.wls = uvm_reg_field::type_id::create("wls");
             this.wls.configure(this, 2, 0, "RW", 0, 'h3, 1, 1, 0);
-            this.stb = new("stb");
+            this.stb = uvm_reg_field::type_id::create("stb");
             this.stb.configure(this, 1, 2, "RW", 0, 'h0, 1, 1, 0);
-            this.pen = new("pen");
+            this.pen = uvm_reg_field::type_id::create("pen");
             this.pen.configure(this, 1, 3, "RW", 0, 'h0, 1, 1, 0);
-            this.eps = new("eps");
+            this.eps = uvm_reg_field::type_id::create("eps");
             this.eps.configure(this, 1, 4, "RW", 0, 'h0, 1, 1, 0);
-            this.sp = new("sp");
+            this.sp = uvm_reg_field::type_id::create("sp");
             this.sp.configure(this, 1, 5, "RW", 0, 'h0, 1, 1, 0);
-            this.bc = new("bc");
+            this.bc = uvm_reg_field::type_id::create("bc");
             this.bc.configure(this, 1, 6, "RW", 0, 'h0, 1, 1, 0);
-            this.dlab = new("dlab");
+            this.dlab = uvm_reg_field::type_id::create("dlab");
             this.dlab.configure(this, 1, 7, "RW", 0, 'h0, 1, 1, 0);
         endfunction : build
     endclass : dlab0_rm__LCR
 
     // reg - dlab0_rm::MCR
     class dlab0_rm__MCR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__MCR)
         rand uvm_reg_field dtr;
         rand uvm_reg_field rts;
         rand uvm_reg_field out1;
@@ -150,23 +157,24 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.dtr = new("dtr");
+            this.dtr = uvm_reg_field::type_id::create("dtr");
             this.dtr.configure(this, 1, 0, "WO", 0, 'h0, 1, 1, 0);
-            this.rts = new("rts");
+            this.rts = uvm_reg_field::type_id::create("rts");
             this.rts.configure(this, 1, 1, "WO", 0, 'h0, 1, 1, 0);
-            this.out1 = new("out1");
+            this.out1 = uvm_reg_field::type_id::create("out1");
             this.out1.configure(this, 1, 2, "WO", 0, 'h0, 1, 1, 0);
-            this.out2 = new("out2");
+            this.out2 = uvm_reg_field::type_id::create("out2");
             this.out2.configure(this, 1, 3, "WO", 0, 'h0, 1, 1, 0);
-            this.loop = new("loop");
+            this.loop = uvm_reg_field::type_id::create("loop");
             this.loop.configure(this, 1, 4, "WO", 0, 'h0, 1, 1, 0);
-            this.rsvd = new("rsvd");
+            this.rsvd = uvm_reg_field::type_id::create("rsvd");
             this.rsvd.configure(this, 3, 5, "WO", 0, 'h0, 1, 1, 0);
         endfunction : build
     endclass : dlab0_rm__MCR
 
     // reg - dlab0_rm::LSR
     class dlab0_rm__LSR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__LSR)
         rand uvm_reg_field dr;
         rand uvm_reg_field oe;
         rand uvm_reg_field pe;
@@ -181,27 +189,28 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.dr = new("dr");
+            this.dr = uvm_reg_field::type_id::create("dr");
             this.dr.configure(this, 1, 0, "RO", 1, 'h0, 1, 1, 0);
-            this.oe = new("oe");
+            this.oe = uvm_reg_field::type_id::create("oe");
             this.oe.configure(this, 1, 1, "RC", 1, 'h0, 1, 1, 0);
-            this.pe = new("pe");
+            this.pe = uvm_reg_field::type_id::create("pe");
             this.pe.configure(this, 1, 2, "RC", 1, 'h0, 1, 1, 0);
-            this.fe = new("fe");
+            this.fe = uvm_reg_field::type_id::create("fe");
             this.fe.configure(this, 1, 3, "RC", 1, 'h0, 1, 1, 0);
-            this.bi = new("bi");
+            this.bi = uvm_reg_field::type_id::create("bi");
             this.bi.configure(this, 1, 4, "RC", 1, 'h0, 1, 1, 0);
-            this.thre = new("thre");
+            this.thre = uvm_reg_field::type_id::create("thre");
             this.thre.configure(this, 1, 5, "RO", 1, 'h1, 1, 1, 0);
-            this.temt = new("temt");
+            this.temt = uvm_reg_field::type_id::create("temt");
             this.temt.configure(this, 1, 6, "RO", 1, 'h1, 1, 1, 0);
-            this.error_en_fifo = new("error_en_fifo");
+            this.error_en_fifo = uvm_reg_field::type_id::create("error_en_fifo");
             this.error_en_fifo.configure(this, 1, 7, "RC", 1, 'h0, 1, 1, 0);
         endfunction : build
     endclass : dlab0_rm__LSR
 
     // reg - dlab0_rm::MSR
     class dlab0_rm__MSR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__MSR)
         rand uvm_reg_field dcts;
         rand uvm_reg_field ddsr;
         rand uvm_reg_field teri;
@@ -216,27 +225,28 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.dcts = new("dcts");
+            this.dcts = uvm_reg_field::type_id::create("dcts");
             this.dcts.configure(this, 1, 0, "RC", 1, 'h0, 1, 1, 0);
-            this.ddsr = new("ddsr");
+            this.ddsr = uvm_reg_field::type_id::create("ddsr");
             this.ddsr.configure(this, 1, 1, "RC", 1, 'h0, 1, 1, 0);
-            this.teri = new("teri");
+            this.teri = uvm_reg_field::type_id::create("teri");
             this.teri.configure(this, 1, 2, "RC", 1, 'h0, 1, 1, 0);
-            this.ddcd = new("ddcd");
+            this.ddcd = uvm_reg_field::type_id::create("ddcd");
             this.ddcd.configure(this, 1, 3, "RC", 1, 'h0, 1, 1, 0);
-            this.cts = new("cts");
+            this.cts = uvm_reg_field::type_id::create("cts");
             this.cts.configure(this, 1, 4, "RO", 1, 'h0, 0, 1, 0);
-            this.dsr = new("dsr");
+            this.dsr = uvm_reg_field::type_id::create("dsr");
             this.dsr.configure(this, 1, 5, "RO", 1, 'h0, 0, 1, 0);
-            this.ri = new("ri");
+            this.ri = uvm_reg_field::type_id::create("ri");
             this.ri.configure(this, 1, 6, "RO", 1, 'h0, 0, 1, 0);
-            this.dcd = new("dcd");
+            this.dcd = uvm_reg_field::type_id::create("dcd");
             this.dcd.configure(this, 1, 7, "RO", 1, 'h0, 0, 1, 0);
         endfunction : build
     endclass : dlab0_rm__MSR
 
     // reg - dlab0_rm::SCR
     class dlab0_rm__SCR extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__SCR)
         rand uvm_reg_field scratch;
 
         function new(string name = "dlab0_rm__SCR");
@@ -244,13 +254,14 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.scratch = new("scratch");
+            this.scratch = uvm_reg_field::type_id::create("scratch");
             this.scratch.configure(this, 8, 0, "RW", 0, 'h0, 1, 1, 0);
         endfunction : build
     endclass : dlab0_rm__SCR
 
     // reg - dlab0_rm::DEBUG1
     class dlab0_rm__DEBUG1 extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__DEBUG1)
         rand uvm_reg_field data;
 
         function new(string name = "dlab0_rm__DEBUG1");
@@ -258,13 +269,14 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.data = new("data");
+            this.data = uvm_reg_field::type_id::create("data");
             this.data.configure(this, 32, 0, "RO", 1, 'h0, 0, 1, 0);
         endfunction : build
     endclass : dlab0_rm__DEBUG1
 
     // reg - dlab0_rm::DEBUG2
     class dlab0_rm__DEBUG2 extends uvm_reg;
+        `uvm_object_utils(dlab0_rm__DEBUG2)
         rand uvm_reg_field data;
         rand uvm_reg_field reservado;
 
@@ -273,15 +285,16 @@ package dlab0_rm_pkg;
         endfunction : new
 
         virtual function void build();
-            this.data = new("data");
+            this.data = uvm_reg_field::type_id::create("data");
             this.data.configure(this, 24, 0, "RO", 1, 'h0, 0, 1, 0);
-            this.reservado = new("reservado");
+            this.reservado = uvm_reg_field::type_id::create("reservado");
             this.reservado.configure(this, 8, 24, "RO", 0, 'h0, 1, 1, 0);
         endfunction : build
     endclass : dlab0_rm__DEBUG2
 
     // addrmap - dlab0_rm
     class dlab0_rm extends uvm_reg_block;
+        `uvm_object_utils(dlab0_rm)
         rand dlab0_rm__RBR RBR;
         rand dlab0_rm__THR THR;
         rand dlab0_rm__IER IER;
@@ -301,62 +314,62 @@ package dlab0_rm_pkg;
 
         virtual function void build();
             this.default_map = create_map("reg_map", 0, 4, UVM_NO_ENDIAN);
-            this.RBR = new("RBR");
+            this.RBR = dlab0_rm__RBR::type_id::create("RBR");
             this.RBR.configure(this);
 
             this.RBR.build();
             this.default_map.add_reg(this.RBR, 'h0);
-            this.THR = new("THR");
+            this.THR = dlab0_rm__THR::type_id::create("THR");
             this.THR.configure(this);
 
             this.THR.build();
             this.default_map.add_reg(this.THR, 'h0);
-            this.IER = new("IER");
+            this.IER = dlab0_rm__IER::type_id::create("IER");
             this.IER.configure(this);
 
             this.IER.build();
             this.default_map.add_reg(this.IER, 'h1);
-            this.IIR = new("IIR");
+            this.IIR = dlab0_rm__IIR::type_id::create("IIR");
             this.IIR.configure(this);
 
             this.IIR.build();
             this.default_map.add_reg(this.IIR, 'h2);
-            this.FCR = new("FCR");
+            this.FCR = dlab0_rm__FCR::type_id::create("FCR");
             this.FCR.configure(this);
 
             this.FCR.build();
             this.default_map.add_reg(this.FCR, 'h2);
-            this.LCR = new("LCR");
+            this.LCR = dlab0_rm__LCR::type_id::create("LCR");
             this.LCR.configure(this);
 
             this.LCR.build();
             this.default_map.add_reg(this.LCR, 'h3);
-            this.MCR = new("MCR");
+            this.MCR = dlab0_rm__MCR::type_id::create("MCR");
             this.MCR.configure(this);
 
             this.MCR.build();
             this.default_map.add_reg(this.MCR, 'h4);
-            this.LSR = new("LSR");
+            this.LSR = dlab0_rm__LSR::type_id::create("LSR");
             this.LSR.configure(this);
 
             this.LSR.build();
             this.default_map.add_reg(this.LSR, 'h5);
-            this.MSR = new("MSR");
+            this.MSR = dlab0_rm__MSR::type_id::create("MSR");
             this.MSR.configure(this);
 
             this.MSR.build();
             this.default_map.add_reg(this.MSR, 'h6);
-            this.SCR = new("SCR");
+            this.SCR = dlab0_rm__SCR::type_id::create("SCR");
             this.SCR.configure(this);
 
             this.SCR.build();
             this.default_map.add_reg(this.SCR, 'h7);
-            this.DEBUG1 = new("DEBUG1");
+            this.DEBUG1 = dlab0_rm__DEBUG1::type_id::create("DEBUG1");
             this.DEBUG1.configure(this);
 
             this.DEBUG1.build();
             this.default_map.add_reg(this.DEBUG1, 'h8);
-            this.DEBUG2 = new("DEBUG2");
+            this.DEBUG2 = dlab0_rm__DEBUG2::type_id::create("DEBUG2");
             this.DEBUG2.configure(this);
 
             this.DEBUG2.build();
