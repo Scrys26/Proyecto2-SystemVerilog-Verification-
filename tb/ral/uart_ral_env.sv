@@ -150,8 +150,21 @@ class uart_ral_env extends uvm_env;
     uvm_config_db#(dlab0_rm_pkg::dlab0_rm)::set(null, "*", "dlab0_rm", regs);
     uvm_config_db#(dlab1_rm_pkg::dlab1_rm)::set(null, "*", "dlab1_rm", dl_regs);
 
+    exclude_regs_from_reset_seq();
+
     adapter   = uart_ral_adapter::type_id::create("adapter");
     predictor = uart_ral_predictor::type_id::create("predictor", this);
+  endfunction
+
+  // Exclusiones de las secuencias integradas de UVM (plan 12.2). Fuera del if para que apliquen
+  // también cuando la prueba pasa los bloques ya creados.
+  local function void exclude_regs_from_reset_seq();
+    // RBR no tiene valor de reset y, con la FIFO vacía, devuelve la RAM sin inicializar (raminfr.v:97).
+    // THR y FCR son de solo escritura y comparten dirección con RBR e IIR: UVM no deja leerlos.
+    uvm_reg no_reset_test[] = '{regs.RBR, regs.THR, regs.FCR};
+    foreach (no_reset_test[i])
+      uvm_resource_db#(bit)::set({"REG::", no_reset_test[i].get_full_name()},
+                                 "NO_REG_HW_RESET_TEST", 1, this);
   endfunction
 
   // Puerta trasera: PeakRDL no genera las rutas. Van antes de lock_model(), que congela el modelo.
