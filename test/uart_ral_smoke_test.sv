@@ -43,4 +43,14 @@ class uart_ral_smoke_test extends uvm_test;
     phase.drop_objection(this);
   endtask
 
+  // Verbosidad: 0 veredicto (siempre se ve), 100 cada comprobación, 200 cada paso, 300 detalle de cada acceso.
+  function void report_phase(uvm_phase phase);
+    uvm_report_server srv = uvm_report_server::get_server();
+    int unsigned      n_err = srv.get_severity_count(UVM_ERROR);
+    if (n_err == 0)
+      `uvm_info("RAL", "uart_ral_smoke_test PASÓ", 0)
+    else
+      `uvm_info("RAL", $sformatf("uart_ral_smoke_test FALLÓ con %0d UVM_ERROR", n_err), 0)
+  endfunction
+
 endclass : uart_ral_smoke_test

@@ -20,6 +20,7 @@ class uart_ral_smoke_seq extends uvm_sequence #(wishB_item);
     uvm_reg_data_t            v;
 
     // 1. Cada ruta de puerta trasera existe en el diseño (incluida la selección de bits dl[15:8]).
+    `uvm_info("RAL", "Paso 1: rutas de puerta trasera", 200)
     paths_seq = uvm_reg_mem_hdl_paths_seq::type_id::create("paths_seq");
     paths_seq.model = ral.regs;
     paths_seq.start(m_sequencer, this);
@@ -27,11 +28,13 @@ class uart_ral_smoke_seq extends uvm_sequence #(wishB_item);
     paths_seq.start(m_sequencer, this);
 
     // 2. Reset por puerta delantera. Solo dlab0_rm: con DLAB = 0, las direcciones 0 y 1 son RBR e IER.
+    `uvm_info("RAL", "Paso 2: reset por puerta delantera (uvm_reg_hw_reset_seq sobre dlab0_rm)", 200)
     rst_seq = uvm_reg_hw_reset_seq::type_id::create("rst_seq");
     rst_seq.model = ral.regs;
     rst_seq.start(m_sequencer, this);
 
     // 3. Reset por puerta trasera. La máscara son los bits que cubre la ruta (uart_ral_env::add_backdoor_*).
+    `uvm_info("RAL", "Paso 3: reset por puerta trasera", 200)
     check_reset_backdoor(ral.regs.IER,    'h0F);
     check_reset_backdoor(ral.regs.IIR,    'h0F);
     check_reset_backdoor(ral.regs.FCR,    'hC0);
@@ -43,6 +46,7 @@ class uart_ral_smoke_seq extends uvm_sequence #(wishB_item);
     check_reset_backdoor(ral.dl_regs.DLM, 'hFF);
 
     // 4a. La escritura por el bus llega al registro interno y el predictor actualiza el espejo (V-REG-03).
+    `uvm_info("RAL", $sformatf("Paso 4a: escritura de SCR = 0x%02h", scr_wdata), 200)
     ral.regs.SCR.write(st, scr_wdata, .parent(this));
     ral.regs.SCR.peek(st, v);
     expect_eq("SCR por puerta trasera", v, scr_wdata);
@@ -52,6 +56,7 @@ class uart_ral_smoke_seq extends uvm_sequence #(wishB_item);
     expect_eq("SCR en el espejo", ral.regs.SCR.get_mirrored_value(), scr_wdata);
 
     // 4b. Protocolo DLAB: nadie puede intercalarse entre subir y bajar DLAB.
+    `uvm_info("RAL", $sformatf("Paso 4b: write_dl(0x%04h) con el secuenciador bloqueado", dl_wdata), 200)
     m_sequencer.lock(this);
     ral.write_dl(dl_wdata, st, this);
     m_sequencer.unlock(this);
@@ -71,6 +76,8 @@ class uart_ral_smoke_seq extends uvm_sequence #(wishB_item);
     uvm_status_e   st;
     uvm_reg_data_t v;
     rg.peek(st, v);
+    `uvm_info("RAL", $sformatf("peek %s = 0x%0h (máscara 0x%0h, reset 0x%0h)",
+                               rg.get_name(), v, mask, rg.get_reset()), 300)
     if (st != UVM_IS_OK)
       `uvm_error("RAL", $sformatf("peek de %s falló", rg.get_name()))
     else
@@ -81,7 +88,7 @@ class uart_ral_smoke_seq extends uvm_sequence #(wishB_item);
     if (got !== exp)
       `uvm_error("RAL", $sformatf("%s = 0x%0h, se esperaba 0x%0h", what, got, exp))
     else
-      `uvm_info("RAL", $sformatf("%s = 0x%0h correcto", what, got), UVM_LOW)
+      `uvm_info("RAL", $sformatf("%s = 0x%0h correcto", what, got), 100)
   endfunction
 
 endclass : uart_ral_smoke_seq

@@ -4,6 +4,7 @@
 #   make                       compila y corre uart_hello_test con semilla 1
 #   make run TEST=x SEED=42    corre otra prueba o semilla (sin recompilar)
 #   make run ARGS="-f tests/caso.args"
+#   make run VERB=300          corre con más detalle (0, 100, 200, 300)
 #   make BUS8=1                compila la variante de bus de 8 bits
 #   make cov                   fusiona la cobertura y genera el reporte HTML
 #   make verdi                 abre Verdi con la base de datos de compilación
@@ -14,6 +15,8 @@ SEED  ?= 1
 ARGS  ?=
 BUS8  ?= 0
 FSDB  ?= 0
+# Verbosidad numérica de UVM: 0 veredicto, 100 comprobaciones, 200 pasos, 300 detalle de cada acceso.
+VERB  ?= 100
 
 DEFINES :=
 ifeq ($(BUS8),1)
@@ -36,7 +39,7 @@ VCS_OPTS := -full64 -sverilog -ntb_opts uvm-1.2 \
 
 SIMV_OPTS := +UVM_TESTNAME=$(TEST) +ntb_random_seed=$(SEED) \
              -cm $(COV_TYPES) -cm_name $(TEST)_$(SEED) \
-             +UVM_VERBOSITY=UVM_LOW \
+             +UVM_VERBOSITY=$(VERB) \
              $(ARGS) \
              -l run_$(TEST)_$(SEED).log
 
