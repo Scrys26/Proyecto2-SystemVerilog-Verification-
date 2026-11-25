@@ -34,6 +34,7 @@ tb/uart_tb_pkg.sv
 // ---- Prueba de humo (reemplazar al agregar el ambiente UVM) ----
 test/uart_hello_pkg.sv
 test/uart_wb_smoke_pkg.sv
+test/uart_ral_smoke_pkg.sv
 
 // ---- Top ----
 tb/tb_top.sv
