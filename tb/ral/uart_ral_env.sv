@@ -168,21 +168,21 @@ class uart_ral_env extends uvm_env;
   endfunction
 
   // Puerta trasera: PeakRDL no genera las rutas. Van antes de lock_model(), que congela el modelo.
-  // Ruta completa = raíz del bloque + nombre del slice: tb_top.dut.regs.lcr (uart_top.v:268: instancia regs).
+  // Ruta completa = raíz del bloque + nombre del slice: tb_top.dut.regs.lcr  instancia regs).
   // add_hdl_path_slice(señal, bit del registro donde empieza, ancho).
   local function void add_backdoor_regs();
     regs.add_hdl_path("tb_top.dut.regs");
-    regs.IER.add_hdl_path_slice("ier",     0, 4);  // reg [3:0] ier (uart_regs.v:303); bits 7:4 leen 0
-    regs.IIR.add_hdl_path_slice("iir",     0, 4);  // bits 7:4 son la constante 4'b1100 (uart_regs.v:410)
-    regs.FCR.add_hdl_path_slice("fcr",     6, 2);  // el RTL solo guarda rx_trigger (uart_regs.v:305)
+    regs.IER.add_hdl_path_slice("ier",     0, 4);  // reg [3:0] ier; bits 7:4 leen 0
+    regs.IIR.add_hdl_path_slice("iir",     0, 4);  // bits 7:4 son la constante 4'b1100
+    regs.FCR.add_hdl_path_slice("fcr",     6, 2);  // el RTL solo guarda rx_trigger
     regs.LCR.add_hdl_path_slice("lcr",     0, 8);
     regs.MCR.add_hdl_path_slice("mcr",     0, 5);
-    regs.LSR.add_hdl_path_slice("lsr",     0, 8);  // wire (uart_regs.v:339): se lee, no se escribe
+    regs.LSR.add_hdl_path_slice("lsr",     0, 8);  // wire: se lee, no se escribe
     regs.MSR.add_hdl_path_slice("msr",     0, 8);
     regs.SCR.add_hdl_path_slice("scratch", 0, 8);
   endfunction
 
-  // DLL y DLM son las dos mitades de un solo vector reg [15:0] dl (uart_regs.v:309).
+  // DLL y DLM son las dos mitades de un solo vector reg [15:0] dl.
   local function void add_backdoor_dl();
     dl_regs.add_hdl_path("tb_top.dut.regs");
     dl_regs.DLL.add_hdl_path_slice("dl[7:0]",  0, 8);
