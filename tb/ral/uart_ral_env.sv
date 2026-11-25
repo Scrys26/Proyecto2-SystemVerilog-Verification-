@@ -68,10 +68,8 @@ class uart_ral_adapter extends uvm_reg_adapter;
   endfunction
 endclass : uart_ral_adapter
 
-// ---------------------------------------------------------------------------
-// Predictor: un solo predictor para los dos bloques. Elige el mapa según el DLAB
+// Predictor un solo predictor para los dos bloques. Elige el mapa según el DLAB
 // del espejo antes de predecir cada transacción del monitor.
-// ---------------------------------------------------------------------------
 class uart_ral_predictor extends uvm_reg_predictor #(wishB_item);
   `uvm_component_utils(uart_ral_predictor)
 
@@ -93,8 +91,8 @@ class uart_ral_predictor extends uvm_reg_predictor #(wishB_item);
     // Direcciones 0 y 1: el DLAB decide el bloque.
     map = (dlab && rw.addr inside {0, 1}) ? dl_regs.default_map : regs.default_map;
 
-    // Con DLAB = 1 el RTL no aplica los efectos de lectura de LSR y MSR
-    // (uart_regs.v:439-441). Se copia el valor leído sin limpiar los bits RC.
+    // Con DLAB = 1 el RTL no aplica los efectos de lectura de LSR y MSR del spec
+    // Se copia el valor leído sin limpiar los bits RC.
     if (dlab && rw.kind == UVM_READ && rw.addr inside {5, 6}) begin
       rg = map.get_reg_by_offset(rw.addr, 1);
       if (rg != null) begin
@@ -117,10 +115,8 @@ class uart_ral_predictor extends uvm_reg_predictor #(wishB_item);
   endfunction
 endclass : uart_ral_predictor
 
-// ---------------------------------------------------------------------------
 // Entorno del RAL: crea los dos bloques, el adaptador y el predictor.
 // El entorno padre llama a connect_bus() en su connect_phase con el agente Wishbone.
-// ---------------------------------------------------------------------------
 class uart_ral_env extends uvm_env;
   `uvm_component_utils(uart_ral_env)
 
@@ -138,13 +134,13 @@ class uart_ral_env extends uvm_env;
 
     // La prueba puede pasar los bloques ya creados; si no, se crean aquí.
     if (!uvm_config_db#(dlab0_rm_pkg::dlab0_rm)::get(this, "", "dlab0_rm", regs)) begin
-      regs = new("regs"); // PeakRDL no registra las clases en la fábrica
+      regs = dlab0_rm_pkg::dlab0_rm::type_id::create("regs");
       regs.build();
       add_backdoor_regs();
       regs.lock_model();
     end
     if (!uvm_config_db#(dlab1_rm_pkg::dlab1_rm)::get(this, "", "dlab1_rm", dl_regs)) begin
-      dl_regs = new("dl_regs");
+      dl_regs = dlab1_rm_pkg::dlab1_rm::type_id::create("dl_regs");
       dl_regs.build();
       add_backdoor_dl();
       dl_regs.lock_model();
@@ -204,7 +200,7 @@ class uart_ral_env extends uvm_env;
   endfunction
 
   // Escribe el divisor sin tocar THR/IER: sube DLAB, escribe DLM y DLL y restaura LCR.
-  // DLM primero porque escribir DLL arranca el contador del divisor (uart_regs.v:544-545).
+  // DLM primero porque escribir DLL arranca el contador del divisor.
   // La secuencia que lo llama hace lock() del secuenciador para que nadie se intercale.
   task write_dl(input bit [15:0] dl, output uvm_status_e status, input uvm_sequence_base parent = null);
     uvm_reg_data_t lcr = regs.LCR.get_mirrored_value();
