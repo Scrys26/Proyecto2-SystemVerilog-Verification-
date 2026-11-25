@@ -90,9 +90,19 @@ class uart_ral_predictor extends uvm_reg_predictor #(wishB_item);
     // (uart_regs.v:439-441). Se copia el valor leído sin limpiar los bits RC.
     if (dlab && rw.kind == UVM_READ && rw.addr inside {5, 6}) begin
       rg = map.get_reg_by_offset(rw.addr, 1);
-      if (rg != null)
+      if (rg != null) begin
+        // reg_ap publica uvm_reg_item (no wishB_item), igual que uvm_reg_predictor::write.
+        uvm_reg_item reg_item = uvm_reg_item::type_id::create("reg_item");
         void'(rg.predict(rw.data, -1, UVM_PREDICT_DIRECT, UVM_FRONTDOOR, map));
-      reg_ap.write(tr);
+        reg_item.element      = rg;
+        reg_item.element_kind = UVM_REG;
+        reg_item.kind         = rw.kind;
+        reg_item.value[0]     = rw.data;
+        reg_item.path         = UVM_FRONTDOOR;
+        reg_item.map          = map;
+        reg_item.status       = rw.status;
+        reg_ap.write(reg_item);
+      end
       return;
     end
 
