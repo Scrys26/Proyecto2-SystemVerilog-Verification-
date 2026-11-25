@@ -35,7 +35,7 @@ class wishB_smoke_seq extends uvm_sequence #(wishB_item);
           sel       == (4'b1000 >> reg_n[1:0]);
           dat       == ({24'b0, wdata} << (8 * lane));
           delay     <= p_sequencer.cfg.wb_delay_max;
-          stb_delay <= p_sequencer.cfg.wb_stb_delay_max;
+          stb_delay inside {[p_sequencer.cfg.wb_stb_delay_min : p_sequencer.cfg.wb_stb_delay_max]};
         })
       `uvm_fatal("SEQ", "No se pudo aleatorizar wishB_item")
     finish_item(it);
