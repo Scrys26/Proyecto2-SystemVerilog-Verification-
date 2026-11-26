@@ -17,5 +17,12 @@ package uart_tb_pkg;
   `include "wishB_monitor.sv"
   `include "wishB_agent.sv"
   `include "uart_ral_env.sv"
+  `include "config_serie.sv"
+  `include "serie_item.sv"
+  `include "serie_sequencer.sv"
+  `include "serie_driver.sv"
+  `include "serie_monitor.sv"
+  `include "serie_agent.sv"
+  `include "serie_rx_seq.sv"
 
 endpackage : uart_tb_pkg

@@ -187,7 +187,7 @@ class config_serie extends uvm_object;
       `uvm_fatal("CFG", "config_serie: una lista de pesos no puede ser toda 0")
 
     if (dl_zero_pct + dl_tail_pct > 100)
-      `uvm_fatal("CFG", "config_serie: UART_DL_ZERO_PCT + UART_DL_TAIL_PCT pasa de 100")WS
+    `uvm_fatal("CFG", "config_serie: UART_DL_ZERO_PCT + UART_DL_TAIL_PCT pasa de 100")
     if (dl_max_fast < 1 || dl_max_fast >= dl_max || dl_max > 65535)
       `uvm_fatal("CFG", "config_serie: se necesita 1 <= UART_DL_MAX_FAST < UART_DL_MAX <= 65535")
 
