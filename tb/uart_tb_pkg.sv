@@ -45,6 +45,7 @@ package uart_tb_pkg;
   `include "uart_env_cfg.sv"
   `include "uart_virtual_sequencer.sv"
   `include "uart_env.sv"
+  `include "uart_base_test.sv"
 
   
 endpackage : uart_tb_pkg

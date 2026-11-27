@@ -8,6 +8,7 @@ module tb_top;
   import uart_wb_smoke_pkg::*;
   import uart_ral_smoke_pkg::*;
   import serie_smoke_pkg::*;
+  import uart_tb_pkg::*;
   
   parameter real CLK_PERIOD_NS = 20.0;
 
