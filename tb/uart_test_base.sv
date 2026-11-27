@@ -152,18 +152,24 @@ class uart_base_test extends uvm_test;
     end
   endfunction
 
-  task run_phase(uvm_phase phase);
-    phase.raise_objection(this);
+  
+task run_phase(uvm_phase phase);
+  uart_main_vseq seq;
 
-    // Por ahora probamos que el ambiente se construya.
-    wait (wb_vif.rst === 1'b0);
-    repeat (5) @(posedge wb_vif.clk);
+  phase.raise_objection(this);
 
-    `uvm_info("BASE_TEST",
-      "Ambiente creado. Falta uart_main_vseq para generar trafico.",
-      UVM_LOW)
+  wait (wb_vif.rst === 1'b0);
+  repeat (5) @(posedge wb_vif.clk);
 
-    phase.drop_objection(this);
-  endtask
+  seq = uart_main_vseq::type_id::create("seq");
+
+  // Pasamos la cobertura para registrar el modo de servicio.
+  seq.cov = env.modem_irq_sb.cov;
+
+  seq.start(env.v_sqr);
+
+  phase.drop_objection(this);
+endtask
+
 
 endclass : uart_base_test
