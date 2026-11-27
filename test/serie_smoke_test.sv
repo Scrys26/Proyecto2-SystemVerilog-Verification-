@@ -1,5 +1,4 @@
-// Prueba de humo del agente serie: configura el UART, manda tráfico en las dos direcciones
-// y deja que el modelo de referencia compare. Va fuera de la regresión de uart_base_test.
+// Prueba de humo del agente serie: configura el UART, manda tráfico en las dos direcciones y deja que el modelo de referencia compare. Va fuera de la regresión de uart_base_test.
 
 class serie_smoke_test extends uvm_test;
   `uvm_component_utils(serie_smoke_test)
@@ -68,6 +67,7 @@ class serie_smoke_test extends uvm_test;
     wishB_agt.wishB_ap.connect(sb.wb_imp);
     serie_agt.serie_tx_ap.connect(sb.stx_imp);
     serie_agt.serie_rx_ap.connect(sb.srx_imp);
+    serie_agt.serie_tx_start_ap.connect(sb.start_imp);
   endfunction
 
   task run_phase(uvm_phase phase);
@@ -89,7 +89,7 @@ class serie_smoke_test extends uvm_test;
     tx_seq.cfg  = ser_cfg;
     tx_seq.regs = ral_env.regs;
     tx_seq.start(wishB_agt.sqr);
-    wait (sb.model.tx_expected.size() == 0);
+    wait (sb.model.tx_fifo.size() == 0 && sb.model.tx_shift.size() == 0);
 
     // 3. RX: mandar una ráfaga por srx y dar tiempo a que el último carácter llegue a la FIFO
     rx_seq = serie_rx_seq::type_id::create("rx_seq");

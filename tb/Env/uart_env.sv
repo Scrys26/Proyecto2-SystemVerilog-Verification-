@@ -91,6 +91,7 @@ class uart_env extends uvm_env;
     wb_agt.wishB_ap.connect(ser_sb.wb_imp);
     serie_agt.serie_tx_ap.connect(ser_sb.stx_imp);
     serie_agt.serie_rx_ap.connect(ser_sb.srx_imp);
+    serie_agt.serie_tx_start_ap.connect(ser_sb.start_imp);
 
     // Cobertura serie: escucha a los mismos tres monitores que el scoreboard.
     ser_cov.adapter = ral.adapter;

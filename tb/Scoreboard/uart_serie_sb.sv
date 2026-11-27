@@ -4,14 +4,16 @@
 `uvm_analysis_imp_decl(_ser_wb)
 `uvm_analysis_imp_decl(_ser_tx)
 `uvm_analysis_imp_decl(_ser_rx)
+`uvm_analysis_imp_decl(_ser_start)
 
 class uart_serie_sb extends uvm_component;
   `uvm_component_utils(uart_serie_sb)
 
-  // Una entrada por cada monitor: Wishbone, stx y srx
-  uvm_analysis_imp_ser_wb #(wishB_item, uart_serie_sb) wb_imp;
-  uvm_analysis_imp_ser_tx #(serie_item, uart_serie_sb) stx_imp;
-  uvm_analysis_imp_ser_rx #(serie_item, uart_serie_sb) srx_imp;
+  // Una entrada por cada monitor: Wishbone, stx y srx, más el aviso de bit de inicio en stx
+  uvm_analysis_imp_ser_wb    #(wishB_item, uart_serie_sb) wb_imp;
+  uvm_analysis_imp_ser_tx    #(serie_item, uart_serie_sb) stx_imp;
+  uvm_analysis_imp_ser_rx    #(serie_item, uart_serie_sb) srx_imp;
+  uvm_analysis_imp_ser_start #(serie_item, uart_serie_sb) start_imp;
 
   uart_serie_model model;
 
@@ -25,6 +27,7 @@ class uart_serie_sb extends uvm_component;
     wb_imp  = new("wb_imp",  this);
     stx_imp = new("stx_imp", this);
     srx_imp = new("srx_imp", this);
+    start_imp = new("start_imp", this);
   endfunction
 
   function void build_phase(uvm_phase phase);
@@ -49,6 +52,11 @@ class uart_serie_sb extends uvm_component;
       model.write_thr(rw.data[7:0]);
     else
       model.read_rbr(rw.data[7:0]);
+  endfunction
+
+  // El DUT acaba de sacar un byte de la FIFO TX
+  function void write_ser_start(serie_item it);
+    model.tx_started();
   endfunction
 
   function void write_ser_tx(serie_item it);
