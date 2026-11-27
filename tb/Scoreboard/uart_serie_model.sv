@@ -48,7 +48,7 @@ class uart_serie_model extends uvm_object;
     end
   endfunction
 
-// Cuando el monitor de srx vio entrar un carácter, se agrega a la cola de bytes esperados para leer en RBR
+  // Cuando el monitor de srx vio entrar un carácter, se agrega a la cola de bytes esperados para leer en RBR
   function void got_srx(serie_item it);
     bit [7:0] mask;
     mask = 8'hFF >> (3 - it.lcr[1:0]);
@@ -77,6 +77,24 @@ class uart_serie_model extends uvm_object;
   // Devuelve cuántos bytes entraron por srx y todavía no se leyeron de RBR
   function int unsigned rx_level();
     return rx_expected.size();
+  endfunction
+
+  // Al final de la prueba, imprime cuántos caracteres se compararon y cuántos fallaron
+  function void report();
+    `uvm_info("SB", $sformatf("TX: %0d comparados, %0d con error", tx_checked, tx_errors), UVM_LOW)
+    `uvm_info("SB", $sformatf("RX: %0d comparados, %0d con error", rx_checked, rx_errors), UVM_LOW)
+
+    // Si quedaron bytes en las colas, algo se mandó y nunca llegó al otro lado
+    if (tx_expected.size() != 0)
+      `uvm_error("SB", $sformatf("Quedaron %0d bytes escritos en THR que nunca salieron por stx", tx_expected.size()))
+    if (rx_expected.size() != 0)
+      `uvm_error("SB", $sformatf("Quedaron %0d bytes que entraron por srx y nunca se leyeron de RBR", rx_expected.size()))
+  endfunction
+
+  // Cuando hay un reset, se borran las colas de bytes pendientes y los contadores de comparaciones y errores
+  function void reset();
+    tx_expected.delete();
+    rx_expected.delete();
   endfunction
 
 endclass : uart_serie_model
