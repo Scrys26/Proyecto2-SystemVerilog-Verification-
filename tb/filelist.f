@@ -8,6 +8,10 @@
 +incdir+tb/ral
 +incdir+test
 +incdir+sva
++incdir+tb/agents/Modem
++incdir+tb/Monitors
++incdir+tb/Env
+
 
 rtl/verilog/raminfr.v
 rtl/verilog/uart_sync_flops.v
@@ -27,8 +31,12 @@ tb/interfaces/mod_if.sv
 tb/interfaces/int_if.sv
 sva/uart_sva.sv
 sva/uart_sva_bind.sv
+<<<<<<< HEAD
 sva/uart_serie_sva.sv
 sva/uart_serie_sva_bind.sv
+=======
+sva/uart_modem_sva.sv
+>>>>>>> origin/main
 
 // ---- Ambiente UVM: después del RTL para que las macros de uart_defines.v ya existan ----
 tb/ral/dlab0_rm_pkg.sv

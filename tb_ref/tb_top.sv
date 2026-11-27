@@ -6,6 +6,7 @@
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 //`include "uart_defines.v"
+//esto sera tomaado solo como referencia estructural o no funcinal al 100%
 
 module tb_top;
 
