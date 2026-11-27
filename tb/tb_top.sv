@@ -7,7 +7,8 @@ module tb_top;
   import uart_hello_pkg::*;   // agreguen aquí el paquete de su ambiente
   import uart_wb_smoke_pkg::*;
   import uart_ral_smoke_pkg::*;
-
+  import serie_smoke_pkg::*;
+  
   parameter real CLK_PERIOD_NS = 20.0;
 
   logic clk = 1'b0;

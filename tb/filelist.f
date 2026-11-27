@@ -4,6 +4,7 @@
 +incdir+tb/interfaces
 +incdir+tb/agents/wishB
 +incdir+tb/agents/serie
++incdir+tb/Scoreboard
 +incdir+tb/ral
 +incdir+test
 +incdir+sva
@@ -36,6 +37,7 @@ tb/uart_tb_pkg.sv
 test/uart_hello_pkg.sv
 test/uart_wb_smoke_pkg.sv
 test/uart_ral_smoke_pkg.sv
+test/serie_smoke_pkg.sv 
 
 // ---- Top ----
 tb/tb_top.sv

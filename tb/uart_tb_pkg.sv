@@ -25,5 +25,6 @@ package uart_tb_pkg;
   `include "serie_agent.sv"
   `include "serie_rx_seq.sv"
   `include "serie_tx_seq.sv"
-
+  `include "uart_serie_model.sv"
+  
 endpackage : uart_tb_pkg
