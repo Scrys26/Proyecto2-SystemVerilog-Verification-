@@ -8,6 +8,10 @@
 +incdir+tb/ral
 +incdir+test
 +incdir+sva
++incdir+tb/agents/Modem
++incdir+tb/Monitors
++incdir+tb/Env
+
 
 rtl/verilog/raminfr.v
 rtl/verilog/uart_sync_flops.v

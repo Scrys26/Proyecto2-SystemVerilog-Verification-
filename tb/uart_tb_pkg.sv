@@ -26,5 +26,25 @@ package uart_tb_pkg;
   `include "serie_rx_seq.sv"
   `include "serie_tx_seq.sv"
   `include "uart_serie_model.sv"
+
+  `include "config_mod.sv"
+  `include "mod_pin_event.sv"
+  `include "mod_sequencer.sv"
+  `include "mod_pin_driver.sv"
+  `include "mod_monitor.sv"
+  `include "mod_agent.sv"
+  `include "mod_seq.sv"
+
+  `include "int_monitor.sv"
+
+  `include "uart_int_model.sv"
+  `include "uart_msr_model.sv"
+  `include "uart_modem_irq_cov.sv"
+  `include "uart_modem_irq_sb.sv"
+
+  `include "uart_env_cfg.sv"
+  `include "uart_virtual_sequencer.sv"
+  `include "uart_env.sv"
+
   
 endpackage : uart_tb_pkg
