@@ -19,6 +19,9 @@ class uart_serie_model extends uvm_object;
   // MCR[4]: lo que se escribe en THR vuelve por dentro a RBR, stx se queda en 1 y srx no se usa
   bit loopback;
 
+  // LCR[6]: con break activo stx se queda en 0 y los bytes que se transmiten no se pueden ver
+  bit tx_break;
+
   // Hubo un overrun y todavía no se ha leído el siguiente byte de RBR
   bit after_overrun;
 
@@ -42,6 +45,9 @@ class uart_serie_model extends uvm_object;
       rx_fifo.push_back(data & mask_of(lcr));
       return;
     end
+
+    // Con break el transmisor sigue trabajando por dentro, pero en stx no se ve nada: no hay qué comparar
+    if (tx_break) return;
 
     if (tx_fifo.size() < FIFO_DEPTH) begin
       tx_fifo.push_back(data);
@@ -141,6 +147,16 @@ class uart_serie_model extends uvm_object;
       tx_fifo.delete();
   endfunction
 
+  // Escritura en LCR: solo interesa el bit de break. Al prenderlo, lo que estaba pendiente
+  // sale escondido detrás del break, así que se deja de esperar.
+  function void write_lcr(bit [7:0] data);
+    if (data[6] && !tx_break) begin
+      tx_fifo.delete();
+      tx_shift.delete();
+    end
+    tx_break = data[6];
+  endfunction
+
   // Escritura en MCR: solo interesa el bit de loopback
   function void write_mcr(bit [7:0] data);
     loopback = data[4];
@@ -174,6 +190,7 @@ class uart_serie_model extends uvm_object;
     tx_shift.delete();
     rx_fifo.delete();
     loopback      = 0;
+    tx_break      = 0;
     after_overrun = 0;
   endfunction
 
