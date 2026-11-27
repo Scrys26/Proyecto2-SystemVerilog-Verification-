@@ -41,17 +41,26 @@ class uart_serie_sb extends uvm_component;
       `uvm_fatal("SB", "uart_serie_sb sin adaptador o sin modelo de registros")
   endfunction
 
-  // Solo interesan los accesos a la dirección 0 con DLAB en 0: escribir ahí es THR y leer es RBR.
-  // Con DLAB en 1 esa misma dirección es DLL, y eso no es tráfico serie.
+  // Del bus interesan THR y RBR (dirección 0 con DLAB en 0), FCR (2) y MCR (4).
+  // Con DLAB en 1 la dirección 0 es DLL, y eso no es tráfico serie.
   function void write_ser_wb(wishB_item it);
     uvm_reg_bus_op rw;
+    bit [7:0]      lcr;
     adapter.bus2reg(it, rw);
-    if (rw.addr != 0 || regs.LCR.dlab.get_mirrored_value() == 1)
+    lcr = 8'(regs.LCR.get_mirrored_value());
+
+    if (rw.kind == UVM_READ) begin
+      if (rw.addr == 0 && !lcr[7])
+        model.read_rbr(rw.data[7:0]);
       return;
-    if (rw.kind == UVM_WRITE)
-      model.write_thr(rw.data[7:0]);
-    else
-      model.read_rbr(rw.data[7:0]);
+    end
+
+    case (rw.addr)
+      0: if (!lcr[7]) model.write_thr(rw.data[7:0], lcr);
+      2: model.write_fcr(rw.data[7:0]);
+      4: model.write_mcr(rw.data[7:0]);
+      default: ;
+    endcase
   endfunction
 
   // El DUT acaba de sacar un byte de la FIFO TX

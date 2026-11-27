@@ -1,6 +1,6 @@
 // Modelo de referencia de la línea serie, compara lo que se escribe en THR con lo que sale por stx. Y lo que entra por srx con lo que se lee en RBR.
 // Lo usa el scoreboard, cada función se llama cuando un monitor reporta algo.
-// Versión 2: las dos FIFOs tienen 16 posiciones como en el DUT.
+// Versión 2: las dos FIFOs tienen 16 posiciones como en el DUT, y se modela el loopback y la limpieza de FIFOs por FCR.
 
 class uart_serie_model extends uvm_object;
   `uvm_object_utils(uart_serie_model)
@@ -15,6 +15,9 @@ class uart_serie_model extends uvm_object;
 
   // FIFO RX del DUT: bytes que entraron y todavía no se leyeron en RBR
   bit [7:0] rx_fifo[$];
+
+  // MCR[4]: lo que se escribe en THR vuelve por dentro a RBR, stx se queda en 1 y srx no se usa
+  bit loopback;
 
   // Hubo un overrun y todavía no se ha leído el siguiente byte de RBR
   bit after_overrun;
@@ -31,8 +34,15 @@ class uart_serie_model extends uvm_object;
     super.new(name);
   endfunction
 
-  // Escritura en THR
-  function void write_thr(bit [7:0] data);
+  // Escritura en THR. lcr es el formato actual, para saber cuántos bits van a volver en loopback.
+  function void write_thr(bit [7:0] data, bit [7:0] lcr);
+    // En loopback el byte da la vuelta por dentro y termina en RBR.
+    // Simplificación: no se sigue cuánto espera en la FIFO TX, así que aquí no se modela overrun.
+    if (loopback) begin
+      rx_fifo.push_back(data & mask_of(lcr));
+      return;
+    end
+
     if (tx_fifo.size() < FIFO_DEPTH) begin
       tx_fifo.push_back(data);
       return;
@@ -80,6 +90,9 @@ class uart_serie_model extends uvm_object;
 
   // Cuando el monitor de srx vio entrar un carácter, se agrega a la FIFO RX del modelo
   function void got_srx(serie_item it);
+    // En loopback el receptor no escucha srx
+    if (loopback) return;
+
     if (rx_fifo.size() < FIFO_DEPTH) begin
       rx_fifo.push_back(it.data & mask_of(it.lcr));
       return;
@@ -117,6 +130,22 @@ class uart_serie_model extends uvm_object;
     after_overrun = 0;
   endfunction
 
+  // Escritura en FCR: bit 1 limpia la FIFO RX y bit 2 la TX.
+  // Lo que ya se está transmitiendo sigue saliendo, por eso tx_shift no se toca.
+  function void write_fcr(bit [7:0] data);
+    if (data[1]) begin
+      rx_fifo.delete();
+      after_overrun = 0;
+    end
+    if (data[2])
+      tx_fifo.delete();
+  endfunction
+
+  // Escritura en MCR: solo interesa el bit de loopback
+  function void write_mcr(bit [7:0] data);
+    loopback = data[4];
+  endfunction
+
   // Devuelve cuántos bytes hay en la FIFO RX del modelo
   function int unsigned rx_level();
     return unsigned'(rx_fifo.size());
@@ -144,6 +173,7 @@ class uart_serie_model extends uvm_object;
     tx_fifo.delete();
     tx_shift.delete();
     rx_fifo.delete();
+    loopback      = 0;
     after_overrun = 0;
   endfunction
 
