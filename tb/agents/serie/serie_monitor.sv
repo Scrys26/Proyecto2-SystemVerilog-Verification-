@@ -7,6 +7,10 @@ class serie_monitor extends uvm_monitor;
   // Por aquí se publica cada carácter reconstruido para el scoreboard y la cobertura
   uvm_analysis_port #(serie_item) ap;
 
+  // Aviso de que empezó una trama (bit de inicio). En stx le dice al scoreboard
+  // en qué momento el DUT sacó un byte de su FIFO TX.
+  uvm_analysis_port #(serie_item) start_ap;
+
   virtual serie_if               vif;
   dlab0_rm_pkg::dlab0_rm  regs;
   dlab1_rm_pkg::dlab1_rm  dl_regs;
@@ -16,7 +20,8 @@ class serie_monitor extends uvm_monitor;
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
-    ap = new("ap", this);
+    ap       = new("ap", this);
+    start_ap = new("start_ap", this);
   endfunction
 
   // Busca la interfaz y los registros; sin ellos no puede saber ni qué mirar ni cómo leerlo
@@ -57,6 +62,13 @@ class serie_monitor extends uvm_monitor;
 
       bit_clks = 16 * dl;
       nbits    = lcr[1:0] + 5;
+
+      // Se avisa apenas baja la línea, antes de leer los bits
+      it      = serie_item::type_id::create("start");
+      it.dir  = dir;
+      it.lcr  = lcr;
+      it.dl   = dl;
+      start_ap.write(it);
 
       // Se espera medio bit para quedar en el centro del bit de inicio.
       // Si ahí la línea ya volvió a 1 era un glitch, y el UART también lo descarta.
