@@ -12,7 +12,7 @@ class serie_smoke_test extends uvm_test;
   wishB_agent     wishB_agt;
   uart_ral_env    ral_env;
   serie_agent     serie_agt;
-  serie_smoke_sb  sb;
+  uart_serie_sb   sb;
 
   virtual serie_if vif;
 
@@ -56,7 +56,7 @@ class serie_smoke_test extends uvm_test;
     wishB_agt = wishB_agent::type_id::create("wishB_agt", this);
     ral_env   = uart_ral_env::type_id::create("ral_env", this);
     serie_agt = serie_agent::type_id::create("serie_agt", this);
-    sb        = serie_smoke_sb::type_id::create("sb", this);
+    sb        = uart_serie_sb::type_id::create("sb", this);
   endfunction
 
   function void connect_phase(uvm_phase phase);

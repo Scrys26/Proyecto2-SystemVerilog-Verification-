@@ -7,7 +7,6 @@ package serie_smoke_pkg;
   `include "uvm_macros.svh"
   import uart_tb_pkg::*;
 
-  `include "serie_smoke_sb.sv"
   `include "serie_smoke_test.sv"
 
 endpackage : serie_smoke_pkg
