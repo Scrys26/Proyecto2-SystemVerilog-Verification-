@@ -11,6 +11,7 @@ class uart_env extends uvm_env;
 
   uart_ral_env ral;
   uart_modem_irq_sb modem_irq_sb;
+  uart_serie_sb ser_sb;
   uart_virtual_sequencer v_sqr;
 
   function new(string name = "uart_env", uvm_component parent = null);
@@ -50,6 +51,8 @@ class uart_env extends uvm_env;
     modem_irq_sb = uart_modem_irq_sb::type_id::create(
       "modem_irq_sb", this);
 
+    ser_sb = uart_serie_sb::type_id::create("ser_sb", this);
+
     v_sqr = uart_virtual_sequencer::type_id::create(
       "v_sqr", this);
   endfunction
@@ -81,7 +84,12 @@ class uart_env extends uvm_env;
     wb_agt.wishB_ap.connect(modem_irq_sb.wb_in);
     irq_mon.int_ap.connect(modem_irq_sb.irq_in);
 
-    // La conexion del modelo serie se hara con Diego.
+    // Scoreboard serie: usa el adaptador y el espejo del RAL para saber si un acceso es THR o RBR.
+    ser_sb.adapter = ral.adapter;
+    ser_sb.regs    = ral.regs;
+    wb_agt.wishB_ap.connect(ser_sb.wb_imp);
+    serie_agt.serie_tx_ap.connect(ser_sb.stx_imp);
+    serie_agt.serie_rx_ap.connect(ser_sb.srx_imp);
   endfunction
 
 endclass : uart_env
