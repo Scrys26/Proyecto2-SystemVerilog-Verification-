@@ -4,6 +4,7 @@
 +incdir+tb/interfaces
 +incdir+tb/agents/wishB
 +incdir+tb/agents/serie
++incdir+tb/Scoreboard
 +incdir+tb/ral
 +incdir+test
 +incdir+sva
