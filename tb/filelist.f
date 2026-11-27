@@ -27,6 +27,8 @@ tb/interfaces/mod_if.sv
 tb/interfaces/int_if.sv
 sva/uart_sva.sv
 sva/uart_sva_bind.sv
+sva/uart_serie_sva.sv
+sva/uart_serie_sva_bind.sv
 
 // ---- Ambiente UVM: después del RTL para que las macros de uart_defines.v ya existan ----
 tb/ral/dlab0_rm_pkg.sv
