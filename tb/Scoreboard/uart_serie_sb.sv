@@ -4,16 +4,16 @@
 `uvm_analysis_imp_decl(_ser_wb)
 `uvm_analysis_imp_decl(_ser_tx)
 `uvm_analysis_imp_decl(_ser_rx)
-`uvm_analysis_imp_decl(_ser_start)
+`uvm_analysis_imp_decl(_ser_pop)
 
 class uart_serie_sb extends uvm_component;
   `uvm_component_utils(uart_serie_sb)
 
-  // Una entrada por cada monitor: Wishbone, stx y srx, más el aviso de bit de inicio en stx
+  // Una entrada por cada monitor: Wishbone, stx y srx, más el aviso de que salió un byte de la FIFO TX
   uvm_analysis_imp_ser_wb    #(wishB_item, uart_serie_sb) wb_imp;
   uvm_analysis_imp_ser_tx    #(serie_item, uart_serie_sb) stx_imp;
   uvm_analysis_imp_ser_rx    #(serie_item, uart_serie_sb) srx_imp;
-  uvm_analysis_imp_ser_start #(serie_item, uart_serie_sb) start_imp;
+  uvm_analysis_imp_ser_pop   #(serie_item, uart_serie_sb) pop_imp;
 
   uart_serie_model model;
 
@@ -27,7 +27,7 @@ class uart_serie_sb extends uvm_component;
     wb_imp  = new("wb_imp",  this);
     stx_imp = new("stx_imp", this);
     srx_imp = new("srx_imp", this);
-    start_imp = new("start_imp", this);
+    pop_imp = new("pop_imp", this);
   endfunction
 
   function void build_phase(uvm_phase phase);
@@ -64,9 +64,9 @@ class uart_serie_sb extends uvm_component;
     endcase
   endfunction
 
-  // Con break activo lo que se ve en stx no es un carácter, así que no se compara
-  function void write_ser_start(serie_item it);
-    if (!it.lcr[6]) model.tx_started();
+  // Con break activo lo que sale no se ve en stx, así que no se compara
+  function void write_ser_pop(serie_item it);
+    if (!it.lcr[6]) model.tx_pop();
   endfunction
 
   function void write_ser_tx(serie_item it);

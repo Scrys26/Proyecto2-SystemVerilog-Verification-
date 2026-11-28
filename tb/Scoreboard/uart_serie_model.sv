@@ -61,10 +61,13 @@ class uart_serie_model extends uvm_object;
     `uvm_info("SB", $sformatf("FIFO TX llena: 0x%02h reemplaza al siguiente byte por salir (AMB-06)", data), UVM_MEDIUM)
   endfunction
 
-  // El monitor de stx vio un bit de inicio: el DUT acaba de sacar un byte de la FIFO TX
-  function void tx_started();
+  // El DUT acaba de sacar un byte de la FIFO TX para transmitirlo
+  function void tx_pop();
+    // En loopback el byte no pasa por la FIFO del modelo (ver write_thr)
+    if (loopback) return;
+
     if (tx_fifo.size() == 0) begin
-      `uvm_error("SB", "Empezó una trama por stx pero la FIFO TX del modelo está vacía")
+      `uvm_error("SB", "El DUT sacó un byte de la FIFO TX pero la FIFO del modelo está vacía")
       tx_errors++;
       return;
     end

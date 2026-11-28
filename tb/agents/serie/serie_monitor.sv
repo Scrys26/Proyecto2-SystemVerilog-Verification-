@@ -7,9 +7,9 @@ class serie_monitor extends uvm_monitor;
   // Por aquí se publica cada carácter reconstruido para el scoreboard y la cobertura
   uvm_analysis_port #(serie_item) ap;
 
-  // Aviso de que empezó una trama (bit de inicio). En stx le dice al scoreboard
-  // en qué momento el DUT sacó un byte de su FIFO TX.
-  uvm_analysis_port #(serie_item) start_ap;
+  // Aviso de movimiento en la FIFO del DUT: en el monitor de stx cuando sale un byte de la FIFO TX,
+  // y en el de srx cuando entra uno a la FIFO RX. Le dice al modelo el momento exacto.
+  uvm_analysis_port #(serie_item) fifo_ap;
 
   virtual serie_if               vif;
   dlab0_rm_pkg::dlab0_rm  regs;
@@ -21,7 +21,7 @@ class serie_monitor extends uvm_monitor;
   function new(string name, uvm_component parent);
     super.new(name, parent);
     ap       = new("ap", this);
-    start_ap = new("start_ap", this);
+    fifo_ap  = new("fifo_ap", this);
   endfunction
 
   // Busca la interfaz y los registros; sin ellos no puede saber ni qué mirar ni cómo leerlo
@@ -47,6 +47,11 @@ class serie_monitor extends uvm_monitor;
     bit          stop;
     bit          all_zero;
 
+    // Los avisos de la FIFO corren aparte, al mismo tiempo que se leen las tramas
+    fork
+      watch_fifo();
+    join_none
+
     forever begin
       // Una trama empieza cuando la línea está en reposo (1) y baja a 0
       wait_line(1'b1);
@@ -62,13 +67,6 @@ class serie_monitor extends uvm_monitor;
 
       bit_clks = 16 * dl;
       nbits    = lcr[1:0] + 5;
-
-      // Se avisa apenas baja la línea, antes de leer los bits
-      it      = serie_item::type_id::create("start");
-      it.dir  = dir;
-      it.lcr  = lcr;
-      it.dl   = dl;
-      start_ap.write(it);
 
       // Se espera medio bit para quedar en el centro del bit de inicio.
       // Si ahí la línea ya volvió a 1 era un glitch, y el UART también lo descarta.
@@ -112,6 +110,22 @@ class serie_monitor extends uvm_monitor;
 
       `uvm_info("SER", $sformatf("Carácter observado: %s", it.convert2string()), UVM_HIGH)
       ap.write(it);
+    end
+  endtask
+
+  // Cada ciclo revisa el pulso que le toca (tx_pop en stx, rx_push en srx) y lo avisa con el formato actual
+  task watch_fifo();
+    serie_item it;
+    bit        pulse;
+    forever begin
+      @(vif.mon_cb);
+      pulse = (dir == SER_DIR_TX) ? vif.mon_cb.tx_pop : vif.mon_cb.rx_push;
+      if (pulse === 1'b1) begin
+        it     = serie_item::type_id::create("fifo");
+        it.dir = dir;
+        it.lcr = regs.LCR.get_mirrored_value();
+        fifo_ap.write(it);
+      end
     end
   endtask
 

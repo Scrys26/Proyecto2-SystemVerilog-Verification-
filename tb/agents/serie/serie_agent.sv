@@ -12,13 +12,15 @@ class serie_agent extends uvm_agent;
   // Los puertos de los monitores se sacan hacia afuera para que el scoreboard se conecte aquí
   uvm_analysis_port #(serie_item) serie_tx_ap;
   uvm_analysis_port #(serie_item) serie_rx_ap;
-  uvm_analysis_port #(serie_item) serie_tx_start_ap; // bit de inicio en stx
+  uvm_analysis_port #(serie_item) serie_tx_pop_ap;  // salió un byte de la FIFO TX
+  uvm_analysis_port #(serie_item) serie_rx_push_ap; // entró un byte a la FIFO RX
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
     serie_tx_ap = new("serie_tx_ap", this);
     serie_rx_ap = new("serie_rx_ap", this);
-    serie_tx_start_ap = new("serie_tx_start_ap", this);
+    serie_tx_pop_ap  = new("serie_tx_pop_ap", this);
+    serie_rx_push_ap = new("serie_rx_push_ap", this);
   endfunction
 
   // Los monitores van siempre; el driver y el secuenciador solo si el agente maneja la línea
@@ -39,7 +41,8 @@ class serie_agent extends uvm_agent;
     super.connect_phase(phase);
     tx_mon.ap.connect(serie_tx_ap);
     rx_mon.ap.connect(serie_rx_ap);
-    tx_mon.start_ap.connect(serie_tx_start_ap);
+    tx_mon.fifo_ap.connect(serie_tx_pop_ap);
+    rx_mon.fifo_ap.connect(serie_rx_push_ap);
     if (get_is_active() == UVM_ACTIVE)
       drv.seq_item_port.connect(sqr.seq_item_export);
   endfunction
