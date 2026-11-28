@@ -68,6 +68,7 @@ class serie_smoke_test extends uvm_test;
     serie_agt.serie_tx_ap.connect(sb.stx_imp);
     serie_agt.serie_rx_ap.connect(sb.srx_imp);
     serie_agt.serie_tx_pop_ap.connect(sb.pop_imp);
+    serie_agt.serie_rx_push_ap.connect(sb.push_imp);
   endfunction
 
   task run_phase(uvm_phase phase);

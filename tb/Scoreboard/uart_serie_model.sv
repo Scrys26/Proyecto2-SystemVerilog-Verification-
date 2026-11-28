@@ -16,6 +16,9 @@ class uart_serie_model extends uvm_object;
   // FIFO RX del DUT: bytes que entraron y todavía no se leyeron en RBR
   bit [7:0] rx_fifo[$];
 
+  // En loopback: bytes que ya salieron de la FIFO TX y van por dentro hacia la FIFO RX
+  bit [7:0] loop_shift[$];
+
   // MCR[4]: lo que se escribe en THR vuelve por dentro a RBR, stx se queda en 1 y srx no se usa
   bit loopback;
 
@@ -37,15 +40,8 @@ class uart_serie_model extends uvm_object;
     super.new(name);
   endfunction
 
-  // Escritura en THR. lcr es el formato actual, para saber cuántos bits van a volver en loopback.
-  function void write_thr(bit [7:0] data, bit [7:0] lcr);
-    // En loopback el byte da la vuelta por dentro y termina en RBR.
-    // Simplificación: no se sigue cuánto espera en la FIFO TX, así que aquí no se modela overrun.
-    if (loopback) begin
-      rx_fifo.push_back(data & mask_of(lcr));
-      return;
-    end
-
+  // Escritura en THR. En loopback también pasa por la FIFO TX, igual que en el DUT.
+  function void write_thr(bit [7:0] data);
     // Con break el transmisor sigue trabajando por dentro, pero en stx no se ve nada: no hay qué comparar
     if (tx_break) return;
 
@@ -61,17 +57,30 @@ class uart_serie_model extends uvm_object;
     `uvm_info("SB", $sformatf("FIFO TX llena: 0x%02h reemplaza al siguiente byte por salir (AMB-06)", data), UVM_MEDIUM)
   endfunction
 
-  // El DUT acaba de sacar un byte de la FIFO TX para transmitirlo
-  function void tx_pop();
-    // En loopback el byte no pasa por la FIFO del modelo (ver write_thr)
-    if (loopback) return;
-
+  // El DUT acaba de sacar un byte de la FIFO TX para transmitirlo.
+  // lcr es el formato en ese momento: en loopback dice cuántos bits van a llegar a RBR.
+  function void tx_pop(bit [7:0] lcr);
     if (tx_fifo.size() == 0) begin
       `uvm_error("SB", "El DUT sacó un byte de la FIFO TX pero la FIFO del modelo está vacía")
       tx_errors++;
       return;
     end
-    tx_shift.push_back(tx_fifo.pop_front());
+    if (loopback)
+      loop_shift.push_back(tx_fifo.pop_front() & mask_of(lcr));
+    else
+      tx_shift.push_back(tx_fifo.pop_front());
+  endfunction
+
+  // El DUT acaba de meter un byte en la FIFO RX. Solo importa en loopback, porque ese byte
+  // no se ve en srx; fuera de loopback lo que entra ya lo reporta el monitor de srx.
+  function void rx_push();
+    if (!loopback) return;
+    if (loop_shift.size() == 0) begin
+      `uvm_error("SB", "En loopback entró un byte a la FIFO RX sin que saliera ninguno de la FIFO TX")
+      rx_errors++;
+      return;
+    end
+    rx_in(loop_shift.pop_front());
   endfunction
 
   // El monitor de stx vio salir un carácter, revisar si coincide con lo que se esperaba
@@ -101,9 +110,13 @@ class uart_serie_model extends uvm_object;
   function void got_srx(serie_item it);
     // En loopback el receptor no escucha srx
     if (loopback) return;
+    rx_in(it.data & mask_of(it.lcr));
+  endfunction
 
+  // Un byte llega a la FIFO RX, venga de srx o de la vuelta del loopback
+  function void rx_in(bit [7:0] data);
     if (rx_fifo.size() < FIFO_DEPTH) begin
-      rx_fifo.push_back(it.data & mask_of(it.lcr));
+      rx_fifo.push_back(data);
       return;
     end
 
@@ -111,7 +124,7 @@ class uart_serie_model extends uvm_object;
     // Más adelante el modelo revisa que el DUT prenda OE en LSR.
     rx_overruns++;
     after_overrun = 1;
-    `uvm_info("SB", $sformatf("Overrun: FIFO RX llena, se pierde 0x%02h", it.data & mask_of(it.lcr)), UVM_MEDIUM)
+    `uvm_info("SB", $sformatf("Overrun: FIFO RX llena, se pierde 0x%02h", data), UVM_MEDIUM)
   endfunction
 
   // Cuando se lee un byte de RBR, se compara con lo que se esperaba
@@ -181,8 +194,8 @@ class uart_serie_model extends uvm_object;
     `uvm_info("SB", $sformatf("RX: %0d comparados, %0d con error, %0d overruns", rx_checked, rx_errors, rx_overruns), UVM_LOW)
 
     // Si quedaron bytes en las colas, algo se mandó y nunca llegó al otro lado
-    if (tx_fifo.size() + tx_shift.size() != 0)
-      `uvm_error("SB", $sformatf("Quedaron %0d bytes escritos en THR que nunca salieron por stx", tx_fifo.size() + tx_shift.size()))
+    if (tx_fifo.size() + tx_shift.size() + loop_shift.size() != 0)
+      `uvm_error("SB", $sformatf("Quedaron %0d bytes escritos en THR que nunca llegaron al otro lado", tx_fifo.size() + tx_shift.size() + loop_shift.size()))
     if (rx_fifo.size() != 0)
       `uvm_error("SB", $sformatf("Quedaron %0d bytes que entraron y nunca se leyeron de RBR", rx_fifo.size()))
   endfunction
@@ -191,6 +204,7 @@ class uart_serie_model extends uvm_object;
   function void reset();
     tx_fifo.delete();
     tx_shift.delete();
+    loop_shift.delete();
     rx_fifo.delete();
     loopback      = 0;
     tx_break      = 0;
