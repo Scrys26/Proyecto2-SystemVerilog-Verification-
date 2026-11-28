@@ -1,6 +1,7 @@
 // Modelo de referencia de la línea serie, compara lo que se escribe en THR con lo que sale por stx. Y lo que entra por srx con lo que se lee en RBR.
 // Lo usa el scoreboard, cada función se llama cuando un monitor reporta algo.
 // Versión 2: las dos FIFOs tienen 16 posiciones como en el DUT, y se modela el loopback y la limpieza de FIFOs por FCR.
+// También lleva el LSR esperado (DR, OE, PE, FE, BI) y lo revisa cada vez que se lee.
 
 class uart_serie_model extends uvm_object;
   `uvm_object_utils(uart_serie_model)
@@ -44,6 +45,16 @@ class uart_serie_model extends uvm_object;
   // Hubo un overrun y todavía no se ha leído el siguiente byte de RBR
   bit after_overrun;
 
+  // LSR esperado. OE, PE, FE y BI se quedan en 1 hasta que se lee LSR, igual que en el DUT.
+  bit exp_oe, exp_pe, exp_fe, exp_bi;
+
+  // El carácter al frente de la FIFO vino fuera de tolerancia: no se sabe qué errores vio el DUT
+  bit err_unknown;
+
+  // El error se esperaba porque el carácter anterior traía el mismo error. El RTL no lo vuelve
+  // a avisar (detecta el flanco), aunque la especificación dice que cada carácter lo reporta.
+  bit rep_pe, rep_fe, rep_bi;
+
   // Cuántos caracteres se compararon y cuántos no coincidieron
   int unsigned tx_checked;
   int unsigned tx_errors;
@@ -52,6 +63,8 @@ class uart_serie_model extends uvm_object;
   int unsigned tx_overflows;
   int unsigned rx_overruns;
   int unsigned rx_skipped;
+  int unsigned lsr_checked;
+  int unsigned lsr_errors;
 
   function new(string name = "uart_serie_model");
     super.new(name);
@@ -152,13 +165,32 @@ class uart_serie_model extends uvm_object;
   function void rx_in(rx_char_t c);
     if (rx_fifo.size() < FIFO_DEPTH) begin
       rx_fifo.push_back(c);
+      // Si la FIFO estaba vacía, este carácter queda al frente y sus errores se ven en LSR
+      if (rx_fifo.size() == 1)
+        reveal_head(0, 0, 0);
       return;
     end
 
-    // Overrun: según la especificación el carácter nuevo se pierde y la FIFO queda igual
+    // Overrun: según la especificación el carácter nuevo se pierde, la FIFO queda igual y se prende OE
     rx_overruns++;
     after_overrun = 1;
+    exp_oe        = 1;
     `uvm_info("SB", $sformatf("Overrun: FIFO RX llena, se pierde 0x%02h", c.data), UVM_MEDIUM)
+  endfunction
+
+  // Un carácter nuevo quedó al frente de la FIFO RX: sus errores pasan al LSR esperado.
+  // prev_* son los errores del carácter que se acaba de leer, para saber si el error se repite.
+  function void reveal_head(bit prev_pe, bit prev_fe, bit prev_bi);
+    rx_char_t h;
+    if (rx_fifo.size() == 0) return;
+    h = rx_fifo[0];
+    if (h.skip) begin
+      err_unknown = 1;
+      return;
+    end
+    if (h.pe) begin exp_pe = 1; rep_pe |= prev_pe; end
+    if (h.fe) begin exp_fe = 1; rep_fe |= prev_fe; end
+    if (h.bi) begin exp_bi = 1; rep_bi |= prev_bi; end
   endfunction
 
   // Cuando se lee un byte de RBR, se compara con lo que se esperaba
@@ -174,6 +206,12 @@ class uart_serie_model extends uvm_object;
 
     c        = rx_fifo.pop_front();
     expected = c.data;
+
+    // El siguiente queda al frente y sus errores pasan al LSR. Si el que se fue venía fuera de
+    // tolerancia no se sabe qué errores vio el DUT, así que tampoco se sabe si el siguiente los repite.
+    reveal_head(c.pe && !c.skip, c.fe && !c.skip, c.bi && !c.skip);
+    if (c.skip && rx_fifo.size() > 0)
+      err_unknown = 1;
 
     // Fuera de tolerancia el DUT puede leer otra cosa y está bien: solo se cuenta.
     // Simplificación: se supone que esa trama sí metió un byte en la FIFO.
@@ -194,6 +232,53 @@ class uart_serie_model extends uvm_object;
       rx_errors++;
     end
     after_overrun = 0;
+  endfunction
+
+  // Lectura de LSR: se compara con el esperado y, como en el DUT, se limpian OE, PE, FE y BI.
+  // THRE y TEMT no se revisan: cambian en ciclos que el modelo no sigue (el plan pide una ventana).
+  function void read_lsr(bit [7:0] data);
+    bit [7:0] exp;
+    exp = lsr_expected();
+    lsr_checked++;
+
+    if (data[0] != exp[0])
+      lsr_mismatch("DR", data[0], exp[0], 0);
+    if (data[1] != exp[1])
+      lsr_mismatch("OE", data[1], exp[1], 0);
+    if (!err_unknown) begin
+      if (data[2] != exp[2]) lsr_mismatch("PE", data[2], exp[2], rep_pe);
+      if (data[3] != exp[3]) lsr_mismatch("FE", data[3], exp[3], rep_fe);
+      if (data[4] != exp[4]) lsr_mismatch("BI", data[4], exp[4], rep_bi);
+    end
+
+    {exp_oe, exp_pe, exp_fe, exp_bi} = '0;
+    {rep_pe, rep_fe, rep_bi}         = '0;
+    err_unknown = 0;
+  endfunction
+
+  // Si el DUT no avisó un error que traía también el carácter anterior, es lo que hace el RTL
+  // (solo ve el flanco) y no lo que pide la especificación: se marca como posible error del DUT.
+  function void lsr_mismatch(string name, bit got, bit exp, bit repeated);
+    lsr_errors++;
+    if (!got && repeated)
+      `uvm_error("SB_DUT", $sformatf("LSR.%s: el carácter traía error igual que el anterior y el DUT no lo avisó", name))
+    else
+      `uvm_error("SB", $sformatf("LSR.%s: se esperaba %0b y se leyó %0b", name, exp, got))
+  endfunction
+
+  // LSR esperado en este momento. THRE (bit 5), TEMT (bit 6) y el bit 7 son aproximados:
+  // no siguen el retraso de un carácter que el RTL le pone a THRE.
+  function bit [7:0] lsr_expected();
+    bit [7:0] lsr;
+    lsr[0] = (rx_fifo.size() > 0);
+    lsr[1] = exp_oe;
+    lsr[2] = exp_pe;
+    lsr[3] = exp_fe;
+    lsr[4] = exp_bi;
+    lsr[5] = (tx_fifo.size() == 0);
+    lsr[6] = lsr[5] && (tx_shift.size() == 0) && (loop_shift.size() == 0);
+    lsr[7] = exp_oe || exp_pe || exp_fe || exp_bi;
+    return lsr;
   endfunction
 
   // Escritura en FCR: bit 1 limpia la FIFO RX y bit 2 la TX.
@@ -237,6 +322,7 @@ class uart_serie_model extends uvm_object;
   function void report();
     `uvm_info("SB", $sformatf("TX: %0d comparados, %0d con error, %0d escrituras con la FIFO llena", tx_checked, tx_errors, tx_overflows), UVM_LOW)
     `uvm_info("SB", $sformatf("RX: %0d comparados, %0d con error, %0d overruns, %0d fuera de tolerancia sin comparar", rx_checked, rx_errors, rx_overruns, rx_skipped), UVM_LOW)
+    `uvm_info("SB", $sformatf("LSR: %0d lecturas revisadas, %0d con error", lsr_checked, lsr_errors), UVM_LOW)
 
     // Si quedaron bytes en las colas, algo se mandó y nunca llegó al otro lado
     if (tx_fifo.size() + tx_shift.size() + loop_shift.size() != 0)
@@ -256,6 +342,9 @@ class uart_serie_model extends uvm_object;
     loopback      = 0;
     tx_break      = 0;
     after_overrun = 0;
+    {exp_oe, exp_pe, exp_fe, exp_bi} = '0;
+    {rep_pe, rep_fe, rep_bi}         = '0;
+    err_unknown = 0;
   endfunction
 
 endclass : uart_serie_model
