@@ -44,7 +44,7 @@ class uart_serie_sb extends uvm_component;
       `uvm_fatal("SB", "uart_serie_sb sin adaptador o sin modelo de registros")
   endfunction
 
-  // Del bus interesan THR y RBR (dirección 0 con DLAB en 0), FCR (2), LCR (3) y MCR (4).
+  // Del bus interesan THR y RBR (dirección 0 con DLAB en 0), FCR (2), LCR (3), MCR (4) y LSR (5).
   // Con DLAB en 1 la dirección 0 es DLL, y eso no es tráfico serie.
   function void write_ser_wb(wishB_item it);
     uvm_reg_bus_op rw;
@@ -55,6 +55,8 @@ class uart_serie_sb extends uvm_component;
     if (rw.kind == UVM_READ) begin
       if (rw.addr == 0 && !lcr[7])
         model.read_rbr(rw.data[7:0]);
+      else if (rw.addr == 5)
+        model.read_lsr(rw.data[7:0]);
       return;
     end
 
@@ -72,7 +74,7 @@ class uart_serie_sb extends uvm_component;
     if (!it.lcr[6]) model.tx_pop(it.lcr);
   endfunction
 
-  // Entró un byte a la FIFO RX del DUT; el modelo solo lo usa en loopback
+  // Entró un byte a la FIFO RX del DUT: es el momento en que el carácter pasa a la FIFO del modelo
   function void write_ser_push(serie_item it);
     model.rx_push();
   endfunction
