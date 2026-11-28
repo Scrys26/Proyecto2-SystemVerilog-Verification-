@@ -1,4 +1,3 @@
-
 class uart_env extends uvm_env;
   `uvm_component_utils(uart_env)
 
@@ -12,6 +11,7 @@ class uart_env extends uvm_env;
   uart_ral_env ral;
   uart_modem_irq_sb modem_irq_sb;
   uart_serie_sb ser_sb;
+  uart_serie_cov ser_cov;
   uart_virtual_sequencer v_sqr;
 
   function new(string name = "uart_env", uvm_component parent = null);
@@ -52,6 +52,7 @@ class uart_env extends uvm_env;
       "modem_irq_sb", this);
 
     ser_sb = uart_serie_sb::type_id::create("ser_sb", this);
+    ser_cov = uart_serie_cov::type_id::create("ser_cov", this);
 
     v_sqr = uart_virtual_sequencer::type_id::create(
       "v_sqr", this);
@@ -90,6 +91,15 @@ class uart_env extends uvm_env;
     wb_agt.wishB_ap.connect(ser_sb.wb_imp);
     serie_agt.serie_tx_ap.connect(ser_sb.stx_imp);
     serie_agt.serie_rx_ap.connect(ser_sb.srx_imp);
+    serie_agt.serie_tx_pop_ap.connect(ser_sb.pop_imp);
+    serie_agt.serie_rx_push_ap.connect(ser_sb.push_imp);
+
+    // Cobertura serie: escucha a los mismos tres monitores que el scoreboard.
+    ser_cov.adapter = ral.adapter;
+    ser_cov.regs    = ral.regs;
+    wb_agt.wishB_ap.connect(ser_cov.wb_imp);
+    serie_agt.serie_tx_ap.connect(ser_cov.stx_imp);
+    serie_agt.serie_rx_ap.connect(ser_cov.srx_imp);
   endfunction
 
 endclass : uart_env

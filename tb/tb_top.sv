@@ -66,6 +66,10 @@ module tb_top;
   assign serie_line.baud = 1'b0;
 `endif
 
+  // Señales internas para el modelo serie: cuándo sale un byte de la FIFO TX y cuándo entra uno a la FIFO RX
+  assign serie_line.tx_pop  = dut.regs.transmitter.tf_pop;
+  assign serie_line.rx_push = dut.regs.rf_push_pulse;
+
   initial begin
     uvm_config_db#(virtual wishB_if)::set(null, "uvm_test_top*", "vif", wishB_bus);
     uvm_config_db#(virtual serie_if)::set(null, "uvm_test_top*", "vif", serie_line);
