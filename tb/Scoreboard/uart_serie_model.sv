@@ -16,6 +16,9 @@ class uart_serie_model extends uvm_object;
   // FIFO RX del DUT: bytes que entraron y todavía no se leyeron en RBR
   bit [7:0] rx_fifo[$];
 
+  // Va junto con rx_fifo: 1 si ese byte llegó fuera de tolerancia de baudios y no se compara
+  bit       rx_skip[$];
+
   // En loopback: bytes que ya salieron de la FIFO TX y van por dentro hacia la FIFO RX
   bit [7:0] loop_shift[$];
 
@@ -35,6 +38,7 @@ class uart_serie_model extends uvm_object;
   int unsigned rx_errors;
   int unsigned tx_overflows;
   int unsigned rx_overruns;
+  int unsigned rx_skipped;
 
   function new(string name = "uart_serie_model");
     super.new(name);
@@ -80,7 +84,7 @@ class uart_serie_model extends uvm_object;
       rx_errors++;
       return;
     end
-    rx_in(loop_shift.pop_front());
+    rx_in(loop_shift.pop_front(), 0);
   endfunction
 
   // El monitor de stx vio salir un carácter, revisar si coincide con lo que se esperaba
@@ -110,13 +114,15 @@ class uart_serie_model extends uvm_object;
   function void got_srx(serie_item it);
     // En loopback el receptor no escucha srx
     if (loopback) return;
-    rx_in(it.data & mask_of(it.lcr));
+    rx_in(it.data & mask_of(it.lcr), it.baud_out);
   endfunction
 
   // Un byte llega a la FIFO RX, venga de srx o de la vuelta del loopback
-  function void rx_in(bit [7:0] data);
+  // skip = 1 si la trama vino fuera de tolerancia: se cuenta su lugar en la FIFO pero no su dato
+  function void rx_in(bit [7:0] data, bit skip);
     if (rx_fifo.size() < FIFO_DEPTH) begin
       rx_fifo.push_back(data);
+      rx_skip.push_back(skip);
       return;
     end
 
@@ -130,6 +136,7 @@ class uart_serie_model extends uvm_object;
   // Cuando se lee un byte de RBR, se compara con lo que se esperaba
   function void read_rbr(bit [7:0] data);
     bit [7:0] expected;
+    bit       skip;
 
     if (rx_fifo.size() == 0) begin
       `uvm_error("SB", $sformatf("Se leyó 0x%02h de RBR pero no había entrado nada por srx", data))
@@ -138,6 +145,15 @@ class uart_serie_model extends uvm_object;
     end
 
     expected = rx_fifo.pop_front();
+    skip     = rx_skip.pop_front();
+
+    // Fuera de tolerancia el DUT puede leer otra cosa y está bien: solo se cuenta.
+    // Simplificación: se supone que esa trama sí metió un byte en la FIFO.
+    if (skip) begin
+      rx_skipped++;
+      after_overrun = 0;
+      return;
+    end
 
     rx_checked++;
     if (data != expected) begin
@@ -157,6 +173,7 @@ class uart_serie_model extends uvm_object;
   function void write_fcr(bit [7:0] data);
     if (data[1]) begin
       rx_fifo.delete();
+      rx_skip.delete();
       after_overrun = 0;
     end
     if (data[2])
@@ -191,7 +208,7 @@ class uart_serie_model extends uvm_object;
   // Al final de la prueba, imprime cuántos caracteres se compararon y cuántos fallaron
   function void report();
     `uvm_info("SB", $sformatf("TX: %0d comparados, %0d con error, %0d escrituras con la FIFO llena", tx_checked, tx_errors, tx_overflows), UVM_LOW)
-    `uvm_info("SB", $sformatf("RX: %0d comparados, %0d con error, %0d overruns", rx_checked, rx_errors, rx_overruns), UVM_LOW)
+    `uvm_info("SB", $sformatf("RX: %0d comparados, %0d con error, %0d overruns, %0d fuera de tolerancia sin comparar", rx_checked, rx_errors, rx_overruns, rx_skipped), UVM_LOW)
 
     // Si quedaron bytes en las colas, algo se mandó y nunca llegó al otro lado
     if (tx_fifo.size() + tx_shift.size() + loop_shift.size() != 0)
@@ -206,6 +223,7 @@ class uart_serie_model extends uvm_object;
     tx_shift.delete();
     loop_shift.delete();
     rx_fifo.delete();
+    rx_skip.delete();
     loopback      = 0;
     tx_break      = 0;
     after_overrun = 0;
