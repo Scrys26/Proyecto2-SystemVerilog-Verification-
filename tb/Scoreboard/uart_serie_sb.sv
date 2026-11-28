@@ -72,7 +72,7 @@ class uart_serie_sb extends uvm_component;
     if (!it.lcr[6]) model.tx_pop(it.lcr);
   endfunction
 
-  // Entró un byte a la FIFO RX del DUT; el modelo solo lo usa en loopback
+  // Entró un byte a la FIFO RX del DUT: es el momento en que el carácter pasa a la FIFO del modelo
   function void write_ser_push(serie_item it);
     model.rx_push();
   endfunction

@@ -7,17 +7,30 @@ class uart_serie_model extends uvm_object;
 
   localparam int FIFO_DEPTH = 16;
 
+  // Un carácter recibido: el dato, sus banderas de error y si vino fuera de tolerancia (skip)
+  typedef struct {
+    bit [7:0] data;
+    bit       pe;
+    bit       fe;
+    bit       bi;
+    bit       skip;
+  } rx_char_t;
+
   // FIFO TX del DUT: bytes escritos en THR que todavía no empiezan a salir
   bit [7:0] tx_fifo[$];
 
   // Bytes que ya salieron de la FIFO y se están transmitiendo por stx (normalmente uno)
   bit [7:0] tx_shift[$];
 
-  // FIFO RX del DUT: bytes que entraron y todavía no se leyeron en RBR
-  bit [7:0] rx_fifo[$];
+  // FIFO RX del DUT: caracteres que entraron y todavía no se leyeron en RBR
+  rx_char_t rx_fifo[$];
 
-  // Va junto con rx_fifo: 1 si ese byte llegó fuera de tolerancia de baudios y no se compara
-  bit       rx_skip[$];
+  // Caracteres que el monitor de srx ya vio pero que el DUT todavía no mete en su FIFO.
+  // Entran a rx_fifo con el pulso rx_push, que es el momento exacto en que entran al DUT.
+  rx_char_t rx_wait[$];
+
+  // Pulsos rx_push que llegaron antes de que el monitor reportara la trama (pasa por pocos ciclos)
+  int unsigned early_push;
 
   // En loopback: bytes que ya salieron de la FIFO TX y van por dentro hacia la FIFO RX
   bit [7:0] loop_shift[$];
@@ -75,16 +88,27 @@ class uart_serie_model extends uvm_object;
       tx_shift.push_back(tx_fifo.pop_front());
   endfunction
 
-  // El DUT acaba de meter un byte en la FIFO RX. Solo importa en loopback, porque ese byte
-  // no se ve en srx; fuera de loopback lo que entra ya lo reporta el monitor de srx.
+  // El DUT acaba de meter un carácter en la FIFO RX. En loopback viene de la vuelta por dentro;
+  // si no, es el que ya reportó el monitor de srx.
   function void rx_push();
-    if (!loopback) return;
-    if (loop_shift.size() == 0) begin
-      `uvm_error("SB", "En loopback entró un byte a la FIFO RX sin que saliera ninguno de la FIFO TX")
-      rx_errors++;
+    rx_char_t c;
+    if (loopback) begin
+      if (loop_shift.size() == 0) begin
+        `uvm_error("SB", "En loopback entró un byte a la FIFO RX sin que saliera ninguno de la FIFO TX")
+        rx_errors++;
+        return;
+      end
+      c = '{data: loop_shift.pop_front(), default: 0};
+      rx_in(c);
       return;
     end
-    rx_in(loop_shift.pop_front(), 0);
+
+    // El monitor todavía no reporta la trama: se guarda el pulso para cuando llegue
+    if (rx_wait.size() == 0) begin
+      early_push++;
+      return;
+    end
+    rx_in(rx_wait.pop_front());
   endfunction
 
   // El monitor de stx vio salir un carácter, revisar si coincide con lo que se esperaba
@@ -110,33 +134,37 @@ class uart_serie_model extends uvm_object;
     end
   endfunction
 
-  // Cuando el monitor de srx vio entrar un carácter, se agrega a la FIFO RX del modelo
+  // El monitor de srx vio una trama completa: espera al pulso rx_push para entrar a la FIFO.
+  // skip = 1 si vino fuera de tolerancia: se cuenta su lugar en la FIFO pero no su dato ni sus errores.
   function void got_srx(serie_item it);
+    rx_char_t c;
     // En loopback el receptor no escucha srx
     if (loopback) return;
-    rx_in(it.data & mask_of(it.lcr), it.baud_out);
+    c = '{data: it.data & mask_of(it.lcr), pe: it.pe, fe: it.fe, bi: it.bi, skip: it.baud_out};
+    if (early_push > 0) begin
+      early_push--;
+      rx_in(c);
+    end else
+      rx_wait.push_back(c);
   endfunction
 
-  // Un byte llega a la FIFO RX, venga de srx o de la vuelta del loopback
-  // skip = 1 si la trama vino fuera de tolerancia: se cuenta su lugar en la FIFO pero no su dato
-  function void rx_in(bit [7:0] data, bit skip);
+  // Un carácter entra a la FIFO RX, venga de srx o de la vuelta del loopback
+  function void rx_in(rx_char_t c);
     if (rx_fifo.size() < FIFO_DEPTH) begin
-      rx_fifo.push_back(data);
-      rx_skip.push_back(skip);
+      rx_fifo.push_back(c);
       return;
     end
 
-    // Overrun: según la especificación el carácter nuevo se pierde y la FIFO queda igual.
-    // Más adelante el modelo revisa que el DUT prenda OE en LSR.
+    // Overrun: según la especificación el carácter nuevo se pierde y la FIFO queda igual
     rx_overruns++;
     after_overrun = 1;
-    `uvm_info("SB", $sformatf("Overrun: FIFO RX llena, se pierde 0x%02h", data), UVM_MEDIUM)
+    `uvm_info("SB", $sformatf("Overrun: FIFO RX llena, se pierde 0x%02h", c.data), UVM_MEDIUM)
   endfunction
 
   // Cuando se lee un byte de RBR, se compara con lo que se esperaba
   function void read_rbr(bit [7:0] data);
+    rx_char_t c;
     bit [7:0] expected;
-    bit       skip;
 
     if (rx_fifo.size() == 0) begin
       `uvm_error("SB", $sformatf("Se leyó 0x%02h de RBR pero no había entrado nada por srx", data))
@@ -144,12 +172,12 @@ class uart_serie_model extends uvm_object;
       return;
     end
 
-    expected = rx_fifo.pop_front();
-    skip     = rx_skip.pop_front();
+    c        = rx_fifo.pop_front();
+    expected = c.data;
 
     // Fuera de tolerancia el DUT puede leer otra cosa y está bien: solo se cuenta.
     // Simplificación: se supone que esa trama sí metió un byte en la FIFO.
-    if (skip) begin
+    if (c.skip) begin
       rx_skipped++;
       after_overrun = 0;
       return;
@@ -173,7 +201,7 @@ class uart_serie_model extends uvm_object;
   function void write_fcr(bit [7:0] data);
     if (data[1]) begin
       rx_fifo.delete();
-      rx_skip.delete();
+      rx_wait.delete();
       after_overrun = 0;
     end
     if (data[2])
@@ -213,8 +241,8 @@ class uart_serie_model extends uvm_object;
     // Si quedaron bytes en las colas, algo se mandó y nunca llegó al otro lado
     if (tx_fifo.size() + tx_shift.size() + loop_shift.size() != 0)
       `uvm_error("SB", $sformatf("Quedaron %0d bytes escritos en THR que nunca llegaron al otro lado", tx_fifo.size() + tx_shift.size() + loop_shift.size()))
-    if (rx_fifo.size() != 0)
-      `uvm_error("SB", $sformatf("Quedaron %0d bytes que entraron y nunca se leyeron de RBR", rx_fifo.size()))
+    if (rx_fifo.size() + rx_wait.size() != 0)
+      `uvm_error("SB", $sformatf("Quedaron %0d bytes que entraron y nunca se leyeron de RBR", rx_fifo.size() + rx_wait.size()))
   endfunction
 
   // Cuando hay un reset, se borran las colas de bytes pendientes; los contadores se quedan para el reporte final
@@ -223,7 +251,8 @@ class uart_serie_model extends uvm_object;
     tx_shift.delete();
     loop_shift.delete();
     rx_fifo.delete();
-    rx_skip.delete();
+    rx_wait.delete();
+    early_push    = 0;
     loopback      = 0;
     tx_break      = 0;
     after_overrun = 0;
