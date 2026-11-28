@@ -12,6 +12,7 @@ class uart_env extends uvm_env;
   uart_modem_irq_sb modem_irq_sb;
   uart_serie_sb ser_sb;
   uart_serie_cov ser_cov;
+  uart_reg_cov reg_cov;
   uart_virtual_sequencer v_sqr;
 
   function new(string name = "uart_env", uvm_component parent = null);
@@ -53,6 +54,7 @@ class uart_env extends uvm_env;
 
     ser_sb = uart_serie_sb::type_id::create("ser_sb", this);
     ser_cov = uart_serie_cov::type_id::create("ser_cov", this);
+    reg_cov = uart_reg_cov::type_id::create("reg_cov", this);
 
     v_sqr = uart_virtual_sequencer::type_id::create(
       "v_sqr", this);
@@ -100,6 +102,13 @@ class uart_env extends uvm_env;
     wb_agt.wishB_ap.connect(ser_cov.wb_imp);
     serie_agt.serie_tx_ap.connect(ser_cov.stx_imp);
     serie_agt.serie_rx_ap.connect(ser_cov.srx_imp);
+    serie_agt.serie_tx_pop_ap.connect(ser_cov.pop_imp);
+    serie_agt.serie_rx_push_ap.connect(ser_cov.push_imp);
+
+    // Cobertura de registros: escucha al monitor Wishbone
+    reg_cov.adapter = ral.adapter;
+    reg_cov.regs    = ral.regs;
+    wb_agt.wishB_ap.connect(reg_cov.analysis_export);
   endfunction
 
 endclass : uart_env
