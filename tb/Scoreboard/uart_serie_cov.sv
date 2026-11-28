@@ -71,17 +71,24 @@ class uart_serie_cov extends uvm_component;
   endgroup
 
   // Nivel de la FIFO TX, muestreado al escribir THR.
-  covergroup cg_traffic with function sample(int unsigned level);
-    cp_fifo_level : coverpoint level {
+  // Se muestrea desde dos lugares: al escribir THR (nivel de la FIFO TX, is_thr = 1)
+  // y en cada trama de srx (velocidad dentro o fuera de tolerancia, is_thr = 0)
+  covergroup cg_traffic with function sample(int unsigned level, bit is_thr, bit baud_out);
+    cp_fifo_level : coverpoint level iff (is_thr) {
       bins empty    = {0};
       bins partial  = {[1:15]};
       bins full     = {16};
       bins overflow = {[17:$]};
     }
     // Escribir con la FIFO llena
-    cp_tx_write_full : coverpoint (level >= 16) {
+    cp_tx_write_full : coverpoint (level >= 16) iff (is_thr) {
       bins no  = {0};
       bins yes = {1};
+    }
+    // Lo mide el monitor de srx en cada trama (V-RX-02)
+    cp_baud_dev : coverpoint baud_out iff (!is_thr) {
+      bins in  = {0};
+      bins out = {1};
     }
   endgroup
 
@@ -123,7 +130,7 @@ class uart_serie_cov extends uvm_component;
           dll = rw.data[7:0];
           cg_div.sample({dlm, dll});
         end else begin
-          cg_traffic.sample(tx_pending);
+          cg_traffic.sample(tx_pending, 1, 0);
           tx_pending++;
         end
       end
@@ -145,6 +152,7 @@ class uart_serie_cov extends uvm_component;
   function void write_cov_rx(serie_item it);
     cg_line_cfg.sample(it.lcr, it.dir);
     cg_err.sample(it.pe, it.fe, it.bi);
+    cg_traffic.sample(0, 0, it.baud_out);
   endfunction
 
 // El reporte de cobertura se hace al final de la simulación, no en cada fase. Se muestrean todos los covergroups, no solo los que se muestrean desde el scoreboard.
