@@ -20,6 +20,9 @@ class uart_serie_cov extends uvm_component;
   // Copia de DLL y DLM según lo que se escribe por el bus, para muestrear cg_div
   bit [7:0] dll, dlm;
 
+  // Nivel de disparo de la FIFO RX (FCR[7:6]), para cruzarlo con el overrun. Después del reset es 14.
+  bit [1:0] tl = 2'b11;
+
   // Caracteres escritos en THR que todavía no han salido completos por stx.
   // Es una aproximación del nivel de la FIFO TX: cuenta también el que va saliendo por el registro de desplazamiento.
   int unsigned tx_pending;
@@ -92,11 +95,19 @@ class uart_serie_cov extends uvm_component;
     }
   endgroup
 
-  // Errores que traía la trama al entrar por srx. Cuando el modelo revise LSR, esto se va a muestrear ahí y se le agregan cp_oe y cp_tl.
-  covergroup cg_err with function sample(bit pe, bit fe, bit bi);
+  // Errores que el DUT reporta en LSR, tomados de cada lectura de LSR por el bus (V-ERR-01 y V-ERR-02)
+  covergroup cg_err with function sample(bit pe, bit fe, bit bi, bit oe, bit [1:0] tl);
     cp_pe : coverpoint pe;
     cp_fe : coverpoint fe;
     cp_bi : coverpoint bi;
+    cp_oe : coverpoint oe;
+    cp_tl : coverpoint tl {
+      bins tl1  = {2'b00};
+      bins tl4  = {2'b01};
+      bins tl8  = {2'b10};
+      bins tl14 = {2'b11};
+    }
+    x_oe_tl : cross cp_oe, cp_tl;
   endgroup
 
   function new(string name, uvm_component parent);
@@ -116,13 +127,16 @@ class uart_serie_cov extends uvm_component;
       `uvm_fatal("COV", "uart_serie_cov sin adaptador o sin modelo de registros")
   endfunction
 
-  // Solo interesan las escrituras a LCR, DLL, DLM y THR
+  // Interesan las lecturas de LSR y las escrituras a THR, DLL, DLM, FCR y LCR
   function void write_cov_wb(wishB_item it);
     uvm_reg_bus_op rw;
     bit            dlab;
     adapter.bus2reg(it, rw);
-    if (rw.kind != UVM_WRITE)
+    if (rw.kind == UVM_READ) begin
+      if (rw.addr == 5)
+        cg_err.sample(rw.data[2], rw.data[3], rw.data[4], rw.data[1], tl);
       return;
+    end
     dlab = regs.LCR.dlab.get_mirrored_value();
     case (rw.addr)
       0: begin
@@ -138,6 +152,7 @@ class uart_serie_cov extends uvm_component;
         dlm = rw.data[7:0];
         cg_div.sample({dlm, dll});
       end
+      2: tl = rw.data[7:6];
       3: cg_tx_break.sample(rw.data[6]);
       default: ;
     endcase
@@ -151,7 +166,6 @@ class uart_serie_cov extends uvm_component;
 
   function void write_cov_rx(serie_item it);
     cg_line_cfg.sample(it.lcr, it.dir);
-    cg_err.sample(it.pe, it.fe, it.bi);
     cg_traffic.sample(0, 0, it.baud_out);
   endfunction
 
