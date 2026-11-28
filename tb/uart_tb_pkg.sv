@@ -28,6 +28,7 @@ package uart_tb_pkg;
   `include "uart_serie_model.sv"
   `include "uart_serie_sb.sv"
   `include "uart_serie_cov.sv"
+  `include "uart_reg_cov.sv"
 
   `include "config_mod.sv"
   `include "mod_pin_event.sv"
