@@ -8,6 +8,10 @@ class uart_serie_model extends uvm_object;
 
   localparam int FIFO_DEPTH = 16;
 
+  // El DUT tarda un par de ciclos en reflejar en LSR un cambio de la FIFO RX, y el bus toma el dato
+  // un ciclo antes del ack. Si la FIFO cambió hace menos que esto, un LSR distinto no es error.
+  localparam realtime LSR_WINDOW = 100ns; // 5 ciclos de 20 ns
+
   // Un carácter recibido: el dato, sus banderas de error y si vino fuera de tolerancia (skip)
   typedef struct {
     bit [7:0] data;
@@ -54,6 +58,9 @@ class uart_serie_model extends uvm_object;
   // El error se esperaba porque el carácter anterior traía el mismo error. El RTL no lo vuelve
   // a avisar (detecta el flanco), aunque la especificación dice que cada carácter lo reporta.
   bit rep_pe, rep_fe, rep_bi;
+
+  // Hora del último cambio en la FIFO RX (entra, se lee, se limpia o hay overrun)
+  realtime last_rx_change;
 
   // Cuántos caracteres se compararon y cuántos no coincidieron
   int unsigned tx_checked;
@@ -163,6 +170,7 @@ class uart_serie_model extends uvm_object;
 
   // Un carácter entra a la FIFO RX, venga de srx o de la vuelta del loopback
   function void rx_in(rx_char_t c);
+    last_rx_change = $realtime;
     if (rx_fifo.size() < FIFO_DEPTH) begin
       rx_fifo.push_back(c);
       // Si la FIFO estaba vacía, este carácter queda al frente y sus errores se ven en LSR
@@ -206,6 +214,7 @@ class uart_serie_model extends uvm_object;
 
     c        = rx_fifo.pop_front();
     expected = c.data;
+    last_rx_change = $realtime;
 
     // El siguiente queda al frente y sus errores pasan al LSR. Si el que se fue venía fuera de
     // tolerancia no se sabe qué errores vio el DUT, así que tampoco se sabe si el siguiente los repite.
@@ -237,22 +246,38 @@ class uart_serie_model extends uvm_object;
   // Lectura de LSR: se compara con el esperado y, como en el DUT, se limpian OE, PE, FE y BI.
   // THRE y TEMT no se revisan: cambian en ciclos que el modelo no sigue (el plan pide una ventana).
   function void read_lsr(bit [7:0] data);
+    string    names[5] = '{"DR", "OE", "PE", "FE", "BI"};
+    bit [4:0] repeated;
+    bit [4:0] keep;
     bit [7:0] exp;
-    exp = lsr_expected();
+    bit       near;
+
+    exp      = lsr_expected();
+    near     = ($realtime - last_rx_change) < LSR_WINDOW;
+    repeated = {rep_bi, rep_fe, rep_pe, 2'b00};
+    keep     = '0;
     lsr_checked++;
 
-    if (data[0] != exp[0])
-      lsr_mismatch("DR", data[0], exp[0], 0);
-    if (data[1] != exp[1])
-      lsr_mismatch("OE", data[1], exp[1], 0);
-    if (!err_unknown) begin
-      if (data[2] != exp[2]) lsr_mismatch("PE", data[2], exp[2], rep_pe);
-      if (data[3] != exp[3]) lsr_mismatch("FE", data[3], exp[3], rep_fe);
-      if (data[4] != exp[4]) lsr_mismatch("BI", data[4], exp[4], rep_bi);
+    for (int i = 0; i <= 4; i++) begin
+      if (data[i] == exp[i]) continue;
+      if (i >= 2 && err_unknown) continue;
+      // Justo después de un cambio en la FIFO el DUT todavía no lo refleja. Si esperábamos un
+      // error que aún no aparece, el DUT lo va a prender después: se guarda para la próxima lectura.
+      if (near) begin
+        keep[i] = exp[i];
+        continue;
+      end
+      lsr_mismatch(names[i], data[i], exp[i], repeated[i]);
     end
 
-    {exp_oe, exp_pe, exp_fe, exp_bi} = '0;
-    {rep_pe, rep_fe, rep_bi}         = '0;
+    // Leer LSR apaga OE, PE, FE y BI, salvo los que el DUT todavía no alcanzaba a mostrar
+    exp_oe = keep[1];
+    exp_pe = keep[2];
+    exp_fe = keep[3];
+    exp_bi = keep[4];
+    rep_pe &= keep[2];
+    rep_fe &= keep[3];
+    rep_bi &= keep[4];
     err_unknown = 0;
   endfunction
 
@@ -287,7 +312,8 @@ class uart_serie_model extends uvm_object;
     if (data[1]) begin
       rx_fifo.delete();
       rx_wait.delete();
-      after_overrun = 0;
+      after_overrun  = 0;
+      last_rx_change = $realtime;
     end
     if (data[2])
       tx_fifo.delete();
