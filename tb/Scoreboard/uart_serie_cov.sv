@@ -38,6 +38,7 @@ class uart_serie_cov extends uvm_component;
 
   // Formato de cada trama que pasó por la línea, en las dos direcciones.
   covergroup cg_line_cfg with function sample(bit [7:0] lcr, serie_dir_e dir);
+    option.per_instance = 1;
     cp_wls : coverpoint lcr[1:0] {
       bins b5 = {2'b00};
       bins b6 = {2'b01};
@@ -67,6 +68,7 @@ class uart_serie_cov extends uvm_component;
 
   // Break de transmisión: se toma al escribir LCR, porque mientras dura no sale ninguna trama por stx
   covergroup cg_tx_break with function sample(bit brk);
+    option.per_instance = 1;
     cp_tx_break : coverpoint brk {
       bins off = {1'b0};
       bins on  = {1'b1};
@@ -75,6 +77,7 @@ class uart_serie_cov extends uvm_component;
 
   // Divisor escrito por el bus. DL = 0 es legal: el UART no transmite ni recibe.
   covergroup cg_div with function sample(bit [15:0] dl);
+    option.per_instance = 1;
     cp_dl : coverpoint dl {
       bins zero = {0};
       bins fast = {[1:16]};
@@ -86,6 +89,7 @@ class uart_serie_cov extends uvm_component;
   // THR = escritura a THR, SRX = trama en srx, LSR = lectura de LSR, TXB/RXB = fin de una ráfaga, BUS = cualquier acceso
   covergroup cg_traffic with function sample(src_e src, int unsigned n, int unsigned lvl,
                                               bit [7:0] lsr, bit baud_out, bit [3:0] sel, int unsigned addr);
+    option.per_instance = 1;
     // Nivel de la FIFO TX justo antes de escribir THR. Con 15 la escritura la llena; con 16 se desborda (AMB-06).
     cp_fifo_level : coverpoint n iff (src == SRC_THR) {
       bins empty    = {0};
@@ -147,6 +151,7 @@ class uart_serie_cov extends uvm_component;
   // FIFO RX: nivel después de cada carácter que entra, cruzado con el nivel de disparo (V-FIFO-01),
   // y las limpiezas por FCR (V-FIFO-02)
   covergroup cg_fifo with function sample(bit is_push, bit [1:0] tl, int unsigned level, bit clr_rx, bit clr_tx);
+    option.per_instance = 1;
     cp_tl : coverpoint tl iff (is_push) {
       bins tl1  = {2'b00};
       bins tl4  = {2'b01};
@@ -170,6 +175,7 @@ class uart_serie_cov extends uvm_component;
 
   // Errores que el DUT reporta en LSR, tomados de cada lectura de LSR por el bus (V-ERR-01 y V-ERR-02)
   covergroup cg_err with function sample(bit pe, bit fe, bit bi, bit oe, bit [1:0] tl);
+    option.per_instance = 1;
     cp_pe : coverpoint pe;
     cp_fe : coverpoint fe;
     cp_bi : coverpoint bi;

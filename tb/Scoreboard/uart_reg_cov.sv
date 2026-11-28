@@ -9,6 +9,7 @@ class uart_reg_cov extends uvm_subscriber #(wishB_item);
   dlab0_rm_pkg::dlab0_rm regs;
 
   covergroup cg_reg_rst with function sample(int unsigned addr, bit dlab, bit is_read, bit [3:0] sel);
+    option.per_instance = 1;
     // Direcciones 0 a 7 (la 7 es el scratch, AMB-01) y los dos registros de depuración (8 y 12)
     cp_addr : coverpoint addr {
       bins regs[] = {[0:7]};
